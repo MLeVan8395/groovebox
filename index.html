@@ -188,7 +188,7 @@ canvas.cv-env{display:block;width:100%;height:96px;background:#0d0f13;border:1px
 .slider.learn{outline:2px dashed var(--mx);outline-offset:3px;border-radius:6px;cursor:pointer}
 .slider.learnsel{outline:2px solid var(--mx);background:color-mix(in srgb,var(--mx) 10%,transparent)}
 #midimap{margin-top:8px} #midimap button{margin:0 0 0 6px;padding:1px 7px}
-.btn.ub:disabled{opacity:.35;cursor:default}
+.btn.ub:disabled,#midion:disabled{opacity:.45;cursor:default}
 footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);font-size:12px}
 @media (hover:none){.kk,.ck,.kbhint{display:none!important}}
 .danger.armed{background:var(--dr);color:#121419;border-color:var(--dr)}
@@ -1462,7 +1462,8 @@ function renderMidiMap(){ const box=$('midimap'); const e=Object.entries(MIDI.ma
   box.innerHTML='Boutons reliés : '+e.map(([cc,k])=>`<span style="white-space:nowrap">CC ${cc} → ${(SLIDERS[k]||{label:k.split('|').pop()}).label}<button class="btn" data-cc="${cc}" aria-label="Supprimer">×</button></span>`).join(' · ');
   box.querySelectorAll('button').forEach(b=>b.onclick=()=>{ delete MIDI.map[b.dataset.cc]; midiSave(); renderMidiMap(); }); }
 renderMidiMap();
-if(MIDI.on&&navigator.requestMIDIAccess) midiEnable();
+if(!navigator.requestMIDIAccess){ $('midion').disabled=true; $('midion').textContent='🎹 MIDI indisponible ici'; $('midistat').textContent='iPad, iPhone et Safari ne gèrent pas le MIDI : utilise Chrome ou Edge, ou une tablette Android'; }
+else if(MIDI.on) midiEnable();
 
 /* appli installable */
 try{ if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(()=>{}); }catch(e){}
