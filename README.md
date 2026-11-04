@@ -24,6 +24,7 @@ Elle fonctionne ensuite **hors ligne** et se met à jour toute seule.
 | **Basse** | Partition en **clé de Fa** qui suit le piano roll note pour note (croches, doubles croches, silences, liaisons), synthé monophonique avec **piano roll** (16 pas, accent, liaison et glissando), motifs par style, et option **suivre les accords** : la ligne se transpose sur chaque accord de la grille |
 | **Synthé** | Le mini-synthé pour jouer une mélodie par-dessus (oscillateur, bruit, filtre, enveloppes ADSR visualisées en direct, vibrato) et une **molette de pitch** (± 2 demi-tons ou ± 1 octave) |
 | **Mixeur** | Pour chaque instrument : niveau, **Mute**, **Solo**, envoi vers la réverb commune, et un **rack d'effets en insert** (saturation, phaser, flanger, chorus, trémolo, delay calé sur le tempo) |
+| **Annuler / rétablir** | Sur les trois séquenceurs (boutons ↶ ↷ ou Ctrl+Z / Ctrl+Maj+Z) |
 | **Sauvegarde** | Le morceau est gardé automatiquement dans l'appareil |
 
 ## Licences

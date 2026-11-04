@@ -183,6 +183,7 @@ canvas.cv-env{display:block;width:100%;height:96px;background:#0d0f13;border:1px
 .wheel::after{content:'';position:absolute;left:4px;right:4px;top:50%;height:1px;background:var(--muted);opacity:.5}
 .wthumb{position:absolute;left:3px;right:3px;height:22px;top:45px;border-radius:6px;background:linear-gradient(#e6d3f5,var(--sy));box-shadow:0 2px 6px rgba(0,0,0,.6)}
 .wthumb.back{transition:top .18s ease-out}
+.btn.ub:disabled{opacity:.35;cursor:default}
 footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);font-size:12px}
 @media (hover:none){.kk,.ck,.kbhint{display:none!important}}
 .danger.armed{background:var(--dr);color:#121419;border-color:var(--dr)}
@@ -216,7 +217,7 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
     <div class="row"><span class="lbl">Kit</span><select id="kit"></select>
       <span class="lbl">Rythme</span><select id="dpreset"></select>
       <div style="flex:1;min-width:160px" id="swingBox"></div>
-      <button class="btn" id="dclear">Vider</button></div>
+      <button class="btn ub" data-undo title="Annuler (Ctrl+Z)">↶ Annuler</button><button class="btn ub" data-redo title="Rétablir (Ctrl+Maj+Z)">↷</button><button class="btn" id="dclear">Vider</button></div>
   </div>
   <div class="panel"><div class="dpads" id="dpads"></div></div>
   <div class="panel"><div class="seqwrap"><div class="seq" id="seq"></div></div>
@@ -232,7 +233,7 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
     <h2>Grille de la scène <select id="glen" aria-label="Nombre de mesures"></select>
       <span class="seg" id="csrc" style="--c:var(--ch)"></span>
       <button class="btn" id="gwrite" style="--c:var(--mx)">✎ Écrire</button>
-      <button class="btn" id="gdel">Effacer la case</button><button class="btn" id="gclear">Vider la grille</button></h2>
+      <button class="btn" id="gdel">Effacer la case</button><button class="btn" id="gclear">Vider la grille</button><button class="btn ub" data-undo title="Annuler (Ctrl+Z)">↶ Annuler</button><button class="btn ub" data-redo title="Rétablir (Ctrl+Maj+Z)">↷</button></h2>
     <div class="grille" id="grille"></div>
     <p class="gdesc" id="ghint"></p>
   </div>
@@ -264,7 +265,7 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
     <div class="row"><span class="lbl">Motif</span><select id="bpreset"></select>
       <label class="chk"><input type="checkbox" id="bfollow"> Suivre les accords</label>
       <span class="lbl">Toucher</span><span class="seg" id="bedit" style="--c:var(--ba)"></span>
-      <button class="btn" id="bclear">Vider</button></div>
+      <button class="btn ub" data-undo title="Annuler (Ctrl+Z)">↶ Annuler</button><button class="btn ub" data-redo title="Rétablir (Ctrl+Maj+Z)">↷</button><button class="btn" id="bclear">Vider</button></div>
     <p class="gdesc" id="bhint"></p>
   </div>
   <div class="panel"><h2>Partition <span class="lbl" id="bsCap"></span></h2><div class="score" id="bscore"></div></div>
@@ -985,7 +986,7 @@ let taps=[]; $('tap').onclick=()=>{ const n=performance.now(); taps=taps.filter(
 $('tonic').onchange=e=>{ SONG.tonic=+e.target.value; curChordKey=null; renderChords(); save(); };
 $('mode').onchange=e=>{ SONG.mode=e.target.value; if(SONG.chords.borrow===SONG.mode){ SONG.chords.borrow=SONG.mode==='ionien'?'eolien':'ionien'; } curChordKey=null; renderChords(); save(); };
 $('style').onchange=e=>{ const k=e.target.value; if(!k) return; applyStyle(k); e.target.value=''; };
-function applyStyle(k){ const st=STYLES[k], dp=PRESETS[st.drum], sc=SC();
+function applyStyle(k){ pushUndo(); const st=STYLES[k], dp=PRESETS[st.drum], sc=SC();
   sc.drums=drumFromPreset(st.drum); sc.bass=parseBass(BASS_PRESETS[st.bass].s); sc.bpre=st.bass; sc.cpat=st.cp;
   SONG.bpm=dp.bpm; SONG.swing=dp.swing; SONG.res=dp.res; if(dp.kit) SONG.kit=dp.kit; if(st.sound) SONG.chords.sound=st.sound;
   SP=SND.map((_,i)=>defParams(i,SONG.kit)); if(dp.snd) Object.entries(dp.snd).forEach(([id,o])=>Object.assign(SP[IDX[id]],o));
@@ -995,7 +996,7 @@ function renderScenes(){ const box=$('scenes'); box.innerHTML='';
     b.onclick=()=>{ if(playing&&i!==SONG.cur){ queued=i; } else { SONG.cur=i; queued=null; renderScene(); save(); } renderScenes(); }; box.appendChild(b); });
   const cp=document.createElement('select'); cp.setAttribute('aria-label','Copier la scène'); cp.add(new Option('Copier vers…',''));
   ['A','B','C','D'].forEach((n,i)=>{ if(i!==SONG.cur) cp.add(new Option('Scène '+n,i)); });
-  cp.onchange=()=>{ const i=+cp.value; if(cp.value==='') return; SONG.scenes[i]=JSON.parse(JSON.stringify(SC())); save(); cp.value=''; };
+  cp.onchange=()=>{ const i=+cp.value; if(cp.value==='') return; pushUndo(i); SONG.scenes[i]=JSON.parse(JSON.stringify(SC())); save(); cp.value=''; };
   box.appendChild(cp); }
 function renderMchips(){ const box=$('mchips'); box.innerHTML='';
   Object.entries(CHN).forEach(([k,c])=>{ const b=document.createElement('button'); b.className='mchip'+(SONG.mix[k].mute?' m':'')+(SONG.mix[k].solo?' s':''); b.style.setProperty('--c',c.c); b.textContent=c.nom;
@@ -1012,8 +1013,8 @@ Object.entries(KITS).forEach(([k,o])=>$('kit').add(new Option(o.nom,k)));
 Object.entries(PRESETS).forEach(([k,o])=>$('dpreset').add(new Option(o.nom,k)));
 $('dpreset').insertBefore(new Option('Choisir…',''),$('dpreset').firstChild); $('dpreset').value='';
 $('kit').onchange=e=>{ SONG.kit=e.target.value; SP=SND.map((_,i)=>defParams(i,SONG.kit)); save(); };
-$('dpreset').onchange=e=>{ const k=e.target.value; if(!k) return; const p=PRESETS[k]; SC().drums=drumFromPreset(k); SONG.swing=p.swing; SONG.res=p.res; if(p.kit){ SONG.kit=p.kit; $('kit').value=p.kit; } SP=SND.map((_,i)=>defParams(i,SONG.kit)); if(p.snd) Object.entries(p.snd).forEach(([id,o])=>Object.assign(SP[IDX[id]],o)); renderSeq(); refreshers.forEach(f=>f()); save(); e.target.value=''; };
-$('dclear').onclick=()=>{ SC().drums=SND.map(()=>Array(16).fill(0)); renderSeq(); save(); };
+$('dpreset').onchange=e=>{ const k=e.target.value; if(!k) return; pushUndo(); const p=PRESETS[k]; SC().drums=drumFromPreset(k); SONG.swing=p.swing; SONG.res=p.res; if(p.kit){ SONG.kit=p.kit; $('kit').value=p.kit; } SP=SND.map((_,i)=>defParams(i,SONG.kit)); if(p.snd) Object.entries(p.snd).forEach(([id,o])=>Object.assign(SP[IDX[id]],o)); renderSeq(); refreshers.forEach(f=>f()); save(); e.target.value=''; };
+$('dclear').onclick=()=>{ pushUndo(); SC().drums=SND.map(()=>Array(16).fill(0)); renderSeq(); save(); };
 slider($('swingBox'),{label:'Swing (tous les instruments)',min:0,max:1,get:()=>SONG.swing,set:v=>SONG.swing=v,fmt:F.pct});
 const DPAD=[['hhc','KeyQ','A'],['hho','KeyW','Z'],['ride','KeyE','E'],['crash','KeyR','R'],['bell','KeyT','T'],['rim','KeyY','Y'],['hhp','KeyA','Q'],['kick','KeyS','S'],['snare','KeyD','D'],['clap','KeyF','F'],['tomh','KeyG','G'],['toml','KeyH','H']];
 const dpadEls={};
@@ -1026,17 +1027,17 @@ function renderSeq(){ const g=$('seq'); g.innerHTML=''; seqCells=SND.map(()=>[])
   g.appendChild(document.createElement('span')); COUNT.forEach((c,i)=>{ const h=document.createElement('span'); h.className='hd'+(i%4===0?' t':''); h.textContent=c; g.appendChild(h); });
   SND.forEach((s,r)=>{ const nm=document.createElement('span'); nm.className='nm'; nm.style.setProperty('--c',s.col); nm.innerHTML=`<i></i>${s.court}`; nm.onclick=()=>padDrum(r); g.appendChild(nm);
     for(let k=0;k<16;k++){ const c=document.createElement('button'); c.className='cell'+(Math.floor(k/4)%2?' b4':''); c.style.setProperty('--c',s.col); c.setAttribute('aria-label',s.nom+' case '+(k+1));
-      c.onclick=()=>{ const sc=SC(); sc.drums[r][k]=(sc.drums[r][k]+1)%3; paintCell(r,k); if(sc.drums[r][k]&&!playing){ audioOn(); drumHit(r,ctx.currentTime+.003,sc.drums[r][k]===2?1:.62); } save(); };
+      c.onclick=()=>{ pushUndo(); const sc=SC(); sc.drums[r][k]=(sc.drums[r][k]+1)%3; paintCell(r,k); if(sc.drums[r][k]&&!playing){ audioOn(); drumHit(r,ctx.currentTime+.003,sc.drums[r][k]===2?1:.62); } save(); };
       g.appendChild(c); seqCells[r][k]=c; paintCell(r,k); } }); }
 function paintCell(r,k){ const v=SC().drums[r][k], c=seqCells[r][k]; c.classList.toggle('v1',v===1); c.classList.toggle('v2',v===2); }
 
 /* --- accords --- */
 for(let n=1;n<=16;n++) $('glen').add(new Option(n+(n>1?' mesures':' mesure'),n));
-$('glen').onchange=e=>{ SC().len=+e.target.value; if(selSlot>=SC().len) selSlot=0; renderGrille(); save(); };
+$('glen').onchange=e=>{ pushUndo(); SC().len=+e.target.value; if(selSlot>=SC().len) selSlot=0; renderGrille(); save(); };
 seg($('csrc'),{grille:'Jouer la grille',live:'Jouer en live'},()=>SONG.chords.src,k=>{ SONG.chords.src=k; liveRef=null; curChordKey=null; renderGrille(); });
 seg($('csound'),Object.fromEntries(Object.entries(CSOUNDS).map(([k,o])=>[k,o.n])),()=>SONG.chords.sound,k=>SONG.chords.sound=k);
 Object.entries(CPAT).forEach(([k,o])=>$('cpat').add(new Option(o.n,k)));
-$('cpat').onchange=e=>{ SC().cpat=e.target.value; arpI=0; save(); };
+$('cpat').onchange=e=>{ pushUndo(); SC().cpat=e.target.value; arpI=0; save(); };
 seg($('coct'),{'m1':'−1','z':'0','p1':'+1','p2':'+2'},()=>({'-1':'m1','0':'z','1':'p1','2':'p2'})[SONG.chords.oct||0],k=>{ SONG.chords.oct={m1:-1,z:0,p1:1,p2:2}[k]; lastVoicing=null; curChordKey=null; });
 seg($('cnb'),{n3:'3 sons',n4:'4 sons',n5:'5 sons'},()=>'n'+SONG.chords.nb,k=>{ SONG.chords.nb=+k.slice(1); curChordKey=null; lastVoicing=null; renderChords(); });
 $('clead').onchange=e=>{ SONG.chords.lead=e.target.checked; save(); };
@@ -1044,8 +1045,8 @@ seg($('secmode'),{v:'Dominante V7',dim:'Diminuée VII°7',sub:'Substitution trit
 $('borrow').onchange=e=>{ SONG.chords.borrow=e.target.value; renderPads(); save(); };
 let writing=false, selSlot=0;
 $('gwrite').onclick=()=>{ writing=!writing; renderGrille(); };
-$('gdel').onclick=()=>{ SC().bars[selSlot]=null; curChordKey=null; renderGrille(); save(); };
-$('gclear').onclick=()=>{ SC().bars=Array(16).fill(null); curChordKey=null; renderGrille(); save(); };
+$('gdel').onclick=()=>{ pushUndo(); SC().bars[selSlot]=null; curChordKey=null; renderGrille(); save(); };
+$('gclear').onclick=()=>{ pushUndo(); SC().bars=Array(16).fill(null); curChordKey=null; renderGrille(); save(); };
 let slotEls=[];
 function renderGrille(){ const sc=SC(), g=$('grille'); g.innerHTML=''; slotEls=[];
   for(let i=0;i<16;i++){ const ch=resolve(sc.bars[i]), b=document.createElement('button'); b.className='slot'+(ch?' full':'')+(ch&&ch.bor?' bor':'')+(ch&&ch.sec?' sec':'')+(i>=sc.len?' off':'')+(writing&&i===selSlot?' sel':'');
@@ -1069,7 +1070,7 @@ function renderPads(){ const t=tonicNote(); $('homeTitle').textContent='Accords 
   const sp=$('secPads'); sp.innerHTML=''; secEls=secTargets(t,SONG.mode).map((d,k)=>{ const p=makePad({s:SONG.chords.sec,d},'sec',SECLBL[k]); sp.appendChild(p); return p; }); }
 function showChord(ch,notes){ $('cstaff').innerHTML = ch&&notes ? chordStaff(notes, 36+((ch.pcs[0]-36)%12+12)%12, ch.nn) : chordStaff([],null); $('cbig').textContent=ch?ch.name:'–'; $('cbig').style.color=ch&&ch.sec?'var(--sec)':ch&&ch.bor?'var(--bor)':''; $('crn').textContent=ch?ch.roman+(ch.sec?' · se résout sur '+ch.target:ch.bor?' · emprunt':''):''; $('cnotes').textContent=ch?ch.fr:''; $('nowc').textContent=ch?ch.name:'–'; }
 function padPress(b){ audioOn(); const ref=b._ref, ch=resolve(ref);
-  if(writing){ SC().bars[selSlot]=ref; curChordKey=null; selSlot=(selSlot+1)%SC().len; renderGrille(); save(); }
+  if(writing){ pushUndo(); SC().bars[selSlot]=ref; curChordKey=null; selSlot=(selSlot+1)%SC().len; renderGrille(); save(); }
   if(playing&&SONG.chords.src==='live'){ liveRef=ref; showChord(ch,voicing(ch.pcs)); return; }
   if(playing&&!writing) { previewChord(ch,b); return; }
   previewChord(ch,b); }
@@ -1081,12 +1082,12 @@ function renderChords(){ renderPads(); renderGrille(); }
 
 /* --- basse --- */
 Object.entries(BASS_PRESETS).forEach(([k,o])=>$('bpreset').add(new Option(o.nom,k)));
-$('bpreset').onchange=e=>{ SC().bass=parseBass(BASS_PRESETS[e.target.value].s); SC().bpre=e.target.value; renderRoll(); save(); };
+$('bpreset').onchange=e=>{ pushUndo(); SC().bass=parseBass(BASS_PRESETS[e.target.value].s); SC().bpre=e.target.value; renderRoll(); save(); };
 $('bfollow').onchange=e=>{ SONG.bass.follow=e.target.checked; renderRoll(); save(); };
 let bedit='note';
 seg($('bedit'),{note:'Note',acc:'Accent',lig:'Liaison'},()=>bedit,k=>{ bedit=k; bhint(); });
 function bhint(){ $('bhint').innerHTML={note:'Touche une case pour poser une note (une seule par colonne), retouche-la pour l\'effacer. Touche un nom de note à gauche pour l\'écouter.',acc:'Touche une note pour l\'<b>accentuer</b> (plus forte, filtre plus ouvert).',lig:'Touche une note pour la <b>lier</b> à la précédente : même hauteur = note tenue, autre hauteur = glissando.'}[bedit]; }
-$('bclear').onclick=()=>{ SC().bass=Array(16).fill(null); renderRoll(); save(); };
+$('bclear').onclick=()=>{ pushUndo(); SC().bass=Array(16).fill(null); renderRoll(); save(); };
 seg($('bwave'),{sawtooth:'Dent de scie',square:'Carré',triangle:'Triangle'},()=>SONG.bass.wave,k=>{ SONG.bass.wave=k; bassParams(); });
 [['Coupure du filtre','cutoff',60,4000,true,F.hz],['Résonance','res',0,1,false,F.pct],['Enveloppe du filtre','env',0,1,false,F.pct],['Déclin du filtre','decay',.03,1.5,true,F.s],['Glissando (durée)','glide',.01,.4,true,F.s],['Sous-oscillateur (octave grave)','sub',0,1,false,F.pct]]
   .forEach(([label,k,min,max,log,fmt])=>slider($('bsl'),{label,min,max,log,get:()=>SONG.bass[k],set:v=>{ SONG.bass[k]=v; bassParams(); },fmt}));
@@ -1101,7 +1102,7 @@ function renderRoll(){ const g=$('roll'), sc=SC(); g.innerHTML=''; rollCells={};
   const rw=g.parentElement; requestAnimationFrame(()=>{ rw.scrollTop=rw.scrollHeight; }); paintRoll(); $('bpreset').value=sc.bpre in BASS_PRESETS?sc.bpre:'vide'; $('bfollow').checked=SONG.bass.follow; }
 function paintRoll(){ const sc=SC(); $('bscore').innerHTML=engraveBassLine(sc.bass); $('bsCap').textContent=SONG.bass.follow?'clé de Fa · écrite sur un accord de Do, transposée sur chaque accord':'clé de Fa'; Object.values(rollCells).forEach(c=>c.classList.remove('on','acc','lig'));
   sc.bass.forEach((st,k)=>{ if(!st) return; const c=rollCells[st.n+'_'+k]; if(c){ c.classList.add('on'); c.classList.toggle('acc',!!st.a); c.classList.toggle('lig',!!st.l); } }); }
-function rollClick(n,k){ const sc=SC(), st=sc.bass[k];
+function rollClick(n,k){ const sc=SC(), st=sc.bass[k]; if(bedit==='note'||(st&&st.n===n)) pushUndo();
   if(bedit==='note'){ if(st&&st.n===n) sc.bass[k]=null; else { sc.bass[k]={n,a:false,l:false}; if(!playing){ audioOn(); bassNote(36+n,ctx.currentTime+.01,false,false,.25,true); } } }
   else if(st&&st.n===n){ if(bedit==='acc') st.a=!st.a; else st.l=!st.l; }
   sc.bpre='perso'; $('bpreset').value=''; paintRoll(); save(); }
@@ -1199,9 +1200,19 @@ const newBtn=$('newSong'); let armed=null;
 newBtn.onclick=()=>{ if(!armed){ newBtn.classList.add('armed'); newBtn.textContent='Sûr ? Tout sera effacé'; armed=setTimeout(()=>{ armed=null; newBtn.classList.remove('armed'); newBtn.textContent='Nouveau morceau'; },3000); return; }
   clearTimeout(armed); armed=null; newBtn.classList.remove('armed'); newBtn.textContent='Nouveau morceau'; if(playing) stop(); SONG=DEF_SONG(); SP=SND.map((_,i)=>defParams(i,SONG.kit)); applyMix(); updateFX(); bassParams(); renderAll(); save(); };
 
+/* --- annuler / rétablir (séquenceurs) --- */
+const undoSt=[], redoSt=[];
+const snap=i=>JSON.stringify({i,sc:SONG.scenes[i]});
+function pushUndo(i=SONG.cur){ undoSt.push(snap(i)); if(undoSt.length>80) undoSt.shift(); redoSt.length=0; updUndo(); }
+function restore(from,to){ if(!from.length) return; const s=JSON.parse(from.pop()); to.push(snap(s.i)); SONG.scenes[s.i]=s.sc; if(s.i!==SONG.cur){ SONG.cur=s.i; queued=null; } curChordKey=null; renderScene(); save(); updUndo(); }
+const undo=()=>restore(undoSt,redoSt), redo=()=>restore(redoSt,undoSt);
+function updUndo(){ document.querySelectorAll('[data-undo]').forEach(b=>b.disabled=!undoSt.length); document.querySelectorAll('[data-redo]').forEach(b=>b.disabled=!redoSt.length); }
+document.querySelectorAll('[data-undo]').forEach(b=>b.onclick=undo); document.querySelectorAll('[data-redo]').forEach(b=>b.onclick=redo); updUndo();
+
 /* --- clavier d'ordinateur --- */
 const kdown=new Map();
 window.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&!e.altKey&&(e.key==='z'||e.key==='Z'||e.key==='y')&&e.target.tagName!=='INPUT'){ e.preventDefault(); (e.shiftKey||e.key==='y')?redo():undo(); return; }
   if(e.repeat||e.metaKey||e.ctrlKey||e.altKey||e.target.tagName==='SELECT'||(e.target.tagName==='INPUT'&&e.target.type!=='range'&&e.target.type!=='checkbox')) return;
   if(e.code==='Space'){ e.preventDefault(); playing?stop():start(); return; }
   if(curTab==='drums'){ const d=DPAD.find(x=>x[1]===e.code); if(d){ e.preventDefault(); padDrum(IDX[d[0]]); } }
