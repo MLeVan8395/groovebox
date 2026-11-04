@@ -124,7 +124,7 @@ details.help b{color:var(--text)}
 .now .nt{font-size:15px}
 
 /* basse */
-.roll{display:grid;grid-template-columns:62px repeat(16,minmax(18px,1fr));gap:2px;min-width:400px;user-select:none;-webkit-user-select:none}
+.roll{touch-action:pan-y;display:grid;grid-template-columns:62px repeat(16,minmax(18px,1fr));gap:2px;min-width:400px;user-select:none;-webkit-user-select:none}
 .roll .rl{font-size:11px;color:var(--muted);display:flex;align-items:center;justify-content:flex-end;padding-right:6px;cursor:pointer;height:19px;font-family:var(--mono)}
 .roll .rl.ct{color:var(--ba)}
 .roll .rl.blk{color:#6c727e}
@@ -170,7 +170,8 @@ details.help b{color:var(--text)}
 .fab{display:none;position:fixed;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:30;width:58px;height:58px;border-radius:50%;border:0;background:var(--mx);color:#121419;font-size:22px;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.5);cursor:pointer}
 .fab.on{background:var(--dr)}
 .score{background:#f4f1ea;color:#1b1e26;border-radius:10px;padding:6px 8px;overflow-x:auto}
-.score svg{min-width:460px}
+.score svg{min-width:400px;max-width:600px;margin:0 auto}
+.dlegend{font-size:12px;color:var(--muted);margin:6px 0 0;line-height:1.5}
 .cstaff{background:#f4f1ea;color:#1b1e26;border-radius:10px;padding:2px 4px;width:150px;flex:none}
 canvas.cv-env{display:block;width:100%;height:96px;background:#0d0f13;border:1px solid var(--line);border-radius:10px}
 .envs{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
@@ -220,6 +221,8 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
       <button class="btn ub" data-undo title="Annuler (Ctrl+Z)">↶ Annuler</button><button class="btn ub" data-redo title="Rétablir (Ctrl+Maj+Z)">↷</button><button class="btn" id="dclear">Vider</button></div>
   </div>
   <div class="panel"><div class="dpads" id="dpads"></div></div>
+  <div class="panel"><h2>Partition <span class="lbl">portée de percussion</span></h2><div class="score" id="dscore"></div>
+    <p class="dlegend">En haut, hampes vers le haut : les mains (charleston, ride, crash, caisse claire, toms). En bas, hampes vers le bas : les pieds (grosse caisse, charleston au pied). Têtes en croix = cymbales ; « o » = charleston ouvert ; croix cerclée = cercle (cross-stick) ; triangle = cloche.</p></div>
   <div class="panel"><div class="seqwrap"><div class="seq" id="seq"></div></div>
     <details class="help"><summary>Comprendre le séquenceur</summary>
       <p>Chaque ligne est un instrument, chaque case une <b>double croche</b> : 16 cases = une mesure à 4 temps, comptée <b>1 ti ke ta, 2 ti ke ta…</b>. Touche une case une fois pour une note, deux fois pour une note <b>accentuée</b>, trois fois pour l'effacer.</p>
@@ -265,6 +268,7 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
     <div class="row"><span class="lbl">Motif</span><select id="bpreset"></select>
       <label class="chk"><input type="checkbox" id="bfollow"> Suivre les accords</label>
       <span class="lbl">Toucher</span><span class="seg" id="bedit" style="--c:var(--ba)"></span>
+      <span class="lbl">Durée</span><span class="seg" id="bdur" style="--c:var(--ba)"></span>
       <button class="btn ub" data-undo title="Annuler (Ctrl+Z)">↶ Annuler</button><button class="btn ub" data-redo title="Rétablir (Ctrl+Maj+Z)">↷</button><button class="btn" id="bclear">Vider</button></div>
     <p class="gdesc" id="bhint"></p>
   </div>
@@ -277,6 +281,7 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
       <p>Le <b>piano roll</b> : les hauteurs de bas en haut, le temps de gauche à droite (16 doubles croches = une mesure). La basse est <b>monophonique</b> : une seule note à la fois.</p>
       <p><b>Suivre les accords</b> : la ligne est écrite sur un accord de <b>Do</b> (Do = fondamentale, Mi = tierce, Sol = quinte, en couleur). Pendant la lecture, elle est transposée sur chaque accord de la grille, et les tierces et quintes s'adaptent (majeur, mineur, diminué). Une seule ligne suffit donc pour tout le morceau.</p>
       <p><b>La partition</b> montre exactement ce que joue la basse, en clé de Fa : une case = une double croche, une note liée aux cases suivantes devient une croche, une noire… Les cases vides deviennent des silences (demi-soupir, soupir…).</p>
+      <p><b>Notes longues</b> : choisis la <b>durée</b> (double croche, croche, noire, blanche, ronde) avant de toucher le piano roll, ou glisse le doigt vers la droite pour allonger la note. Une note longue, ce sont des cases <b>liées</b> à la suite.</p>
       <p><b>Accent</b> : la note est plus forte et le filtre s'ouvre plus. <b>Liaison</b> : la note s'enchaîne à la précédente sans être rejouée ; si c'est la même hauteur, elle est tenue ; sinon, le son <b>glisse</b> d'une note à l'autre (glissando).</p>
     </details>
   </div>
@@ -704,6 +709,73 @@ function engraveBassLine(steps){
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${Ht}" style="width:100%;height:auto;display:block" role="img" aria-label="Ligne de basse en clé de fa">${o.join('')}</svg>`;
 }
 
+/* ===== Partition de batterie (portée de percussion, 2 voix : mains en haut, pieds en bas) ===== */
+const DS_LEFT=64, DS_STEP=26;
+const DRUM_MAP={kick:{p:31,h:'n',v:1}, hhp:{p:29,h:'x',v:1},
+  toml:{p:33,h:'n',v:0}, snare:{p:35,h:'n',v:0}, rim:{p:35,h:'cx',v:0}, clap:{p:36,h:'x',v:0}, tomh:{p:37,h:'n',v:0},
+  ride:{p:38,h:'x',v:0}, hhc:{p:39,h:'x',v:0}, hho:{p:39,h:'xo',v:0}, crash:{p:40,h:'x',v:0}, bell:{p:41,h:'tri',v:0}};
+function engraveDrums(pat){
+  const left=DS_LEFT, sw=DS_STEP, top=52, base=30, W=left+16*sw+18, Ht=top+4*SPc+58, o=[];
+  const Y=p=>top+4*SPc-(p-base)*Hc, X=k=>left+k*sw+sw/2-2;
+  o.push(`<rect id="dsPh" x="-200" y="${top-48}" width="${sw}" height="${4*SPc+80}" rx="4" style="fill:var(--dr);opacity:.22"/>`);
+  for(let l=0;l<5;l++) o.push(`<line x1="6" y1="${top+l*SPc}" x2="${W-6}" y2="${top+l*SPc}" stroke="${INK}"/>`);
+  [W-10,W-6].forEach((x,i)=>o.push(`<line x1="${x}" y1="${top}" x2="${x}" y2="${top+4*SPc}" stroke="${INK}" stroke-width="${i?3.5:1}"/>`));
+  o.push(`<rect x="14" y="${top+SPc}" width="4" height="${2*SPc}" fill="${INK}"/><rect x="22" y="${top+SPc}" width="4" height="${2*SPc}" fill="${INK}"/>`);
+  o.push(`<text x="44" y="${top+SPc*2-1}" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="22" fill="${INK}">4</text><text x="44" y="${top+4*SPc-1}" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="22" fill="${INK}">4</text>`);
+  const ids=SND.map(s=>s.id);
+  [0,1].forEach(voice=>{
+    const up=voice===0, evs=[];
+    for(let k=0;k<16;k++){ const heads=[]; let acc=false;
+      ids.forEach((id,r)=>{ const m=DRUM_MAP[id]; if(m&&m.v===voice&&pat[r][k]){ heads.push({p:m.p,h:m.h}); if(pat[r][k]===2) acc=true; } });
+      if(heads.length) evs.push({k,heads,acc}); }
+    if(!evs.length){ if(up) o.push(`<rect x="${X(7.5)-6}" y="${top+SPc}" width="13" height="5.5" fill="${INK}"/>`); return; }
+    const pieces=[]; let t=0;
+    const rest=(a,b)=>{ let x=a; while(x<b){ const be=Math.min(b,(Math.floor(x/4)+1)*4); pieces.push({rest:true,k:x,d:be-x}); x=be; } };
+    evs.forEach((e,i)=>{ if(e.k>t) rest(t,e.k); const be=(Math.floor(e.k/4)+1)*4, nx=evs[i+1]?Math.min(evs[i+1].k,be):be; pieces.push({...e,d:nx-e.k}); t=nx; });
+    if(t<16) rest(t,16);
+    const ly=up?top+SPc:top+3*SPc;
+    // têtes
+    pieces.forEach(p=>{ if(p.rest) return; p.x=X(p.k); const hs=p.heads.slice().sort((a,b)=>a.p-b.p); let prev=null, sh=false;
+      p.ys=hs.map(h=>Y(h.p)); p.hi=Math.min(...p.ys); p.lo=Math.max(...p.ys);
+      hs.forEach(h=>{ let shift=false; if(prev!==null&&h.p-prev===1&&!sh) shift=true; sh=shift; prev=h.p; const x=p.x+(shift?(up?12:-12):0), y=Y(h.p);
+        ledgers(o,h.p,top,base,x-10,x+10);
+        if(h.h==='n') o.push(`<ellipse cx="${x}" cy="${y}" rx="6.4" ry="4.4" fill="${INK}" transform="rotate(-18 ${x} ${y})"/>`);
+        else if(h.h==='tri') o.push(`<path d="M${x-5} ${y+4}L${x+5} ${y+4}L${x} ${y-5}Z" fill="${INK}"/>`);
+        else { o.push(`<path d="M${x-4.5} ${y-4.5}L${x+4.5} ${y+4.5}M${x+4.5} ${y-4.5}L${x-4.5} ${y+4.5}" stroke="${INK}" stroke-width="1.8"/>`);
+          if(h.h==='cx') o.push(`<circle cx="${x}" cy="${y}" r="7" fill="none" stroke="${INK}" stroke-width="1.3"/>`);
+          if(h.h==='xo') o.push(`<circle cx="${x}" cy="${top-14}" r="3.2" fill="none" stroke="${INK}" stroke-width="1.4"/>`); }
+        if(p.d===3) o.push(`<circle cx="${x+11}" cy="${y-((h.p-base)%2===0?3:0)}" r="2" fill="${INK}"/>`); }); });
+    // groupes ligaturés
+    const groups=[]; let g=[];
+    pieces.forEach(p=>{ const ok=!p.rest&&p.d<=3; if(ok&&g.length&&Math.floor(g[0].k/4)===Math.floor(p.k/4)) g.push(p); else { if(g.length) groups.push(g); g=ok?[p]:[]; } });
+    if(g.length) groups.push(g);
+    const sx=p=>up?p.x+6:p.x-6;
+    pieces.forEach(p=>{
+      if(p.rest){ const x=X(p.k)+2;
+        if(p.d===4) o.push(glyph('qrest',x-6,ly+22,34));
+        else if(p.d===2) o.push(glyph('erest',x-7,ly+21,38));
+        else if(p.d===3) o.push(glyph('erest',x-7,ly+21,38)+`<circle cx="${x+11}" cy="${ly-5}" r="2" fill="${INK}"/>`);
+        else o.push(glyph('erest',x-6,ly+16,38)+glyph('erest',x-9,ly+27,38));
+        return; }
+      const inG=groups.find(gr=>gr.length>1&&gr.includes(p));
+      if(!inG){ const x=sx(p), y1=up?p.lo:p.hi, y2=up?Math.min(p.hi-30,top-4):Math.max(p.lo+30,top+4*SPc+4);
+        o.push(`<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="${INK}" stroke-width="1.4"/>`);
+        const nf=p.d===1?2:(p.d===2||p.d===3)?1:0;
+        for(let f=0;f<nf;f++){ const fy=y2+(up?f*8:-f*8); o.push(up?`<path d="M${x} ${fy} c2 8 12 10 8 22" fill="none" stroke="${INK}" stroke-width="2"/>`:`<path d="M${x} ${fy} c2 -8 12 -10 8 -22" fill="none" stroke="${INK}" stroke-width="2"/>`); }
+        p.end=y2; }
+    });
+    groups.forEach(gr=>{ if(gr.length<2) return; const th=4.5, dir=up?1:-1;
+      const by=up?Math.min(top-4,...gr.map(p=>p.hi-30)):Math.max(top+4*SPc+4,...gr.map(p=>p.lo+30));
+      gr.forEach(p=>{ o.push(`<line x1="${sx(p)}" y1="${up?p.lo:p.hi}" x2="${sx(p)}" y2="${by}" stroke="${INK}" stroke-width="1.4"/>`); p.end=by; });
+      const b=(xa,xb,yy)=>o.push(`<rect x="${Math.min(xa,xb)}" y="${up?yy:yy-th}" width="${Math.abs(xb-xa)+1}" height="${th}" fill="${INK}"/>`);
+      b(sx(gr[0]),sx(gr[gr.length-1]),by); const y2=by+dir*7;
+      gr.forEach((p,i)=>{ if(p.d!==1) return; const nx=gr[i+1], pv=gr[i-1];
+        if(nx&&nx.d===1) b(sx(p),sx(nx),y2); else if(!(pv&&pv.d===1)){ if(pv) b(sx(p)-9,sx(p),y2); else b(sx(p),sx(p)+9,y2); } }); });
+    pieces.forEach(p=>{ if(p.rest||!p.acc) return; const ay=up?p.end-9:p.end+9; o.push(`<path d="M${p.x-5} ${ay-4}L${p.x+7} ${ay}L${p.x-5} ${ay+4}" fill="none" stroke="${INK}" stroke-width="1.6"/>`); });
+  });
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${Ht}" style="width:100%;height:auto;display:block" role="img" aria-label="Rythme de batterie sur portée de percussion">${o.join('')}</svg>`;
+}
+
 /* ======================================================================
    MORCEAU (état sauvegardé)
    ====================================================================== */
@@ -1028,8 +1100,9 @@ function renderSeq(){ const g=$('seq'); g.innerHTML=''; seqCells=SND.map(()=>[])
   SND.forEach((s,r)=>{ const nm=document.createElement('span'); nm.className='nm'; nm.style.setProperty('--c',s.col); nm.innerHTML=`<i></i>${s.court}`; nm.onclick=()=>padDrum(r); g.appendChild(nm);
     for(let k=0;k<16;k++){ const c=document.createElement('button'); c.className='cell'+(Math.floor(k/4)%2?' b4':''); c.style.setProperty('--c',s.col); c.setAttribute('aria-label',s.nom+' case '+(k+1));
       c.onclick=()=>{ pushUndo(); const sc=SC(); sc.drums[r][k]=(sc.drums[r][k]+1)%3; paintCell(r,k); if(sc.drums[r][k]&&!playing){ audioOn(); drumHit(r,ctx.currentTime+.003,sc.drums[r][k]===2?1:.62); } save(); };
-      g.appendChild(c); seqCells[r][k]=c; paintCell(r,k); } }); }
-function paintCell(r,k){ const v=SC().drums[r][k], c=seqCells[r][k]; c.classList.toggle('v1',v===1); c.classList.toggle('v2',v===2); }
+      g.appendChild(c); seqCells[r][k]=c; paintCell(r,k,true); } }); paintDrumScore(); }
+function paintCell(r,k,noScore){ const v=SC().drums[r][k], c=seqCells[r][k]; c.classList.toggle('v1',v===1); c.classList.toggle('v2',v===2); if(!noScore) paintDrumScore(); }
+function paintDrumScore(){ const el=$('dscore'); if(el) el.innerHTML=engraveDrums(SC().drums); }
 
 /* --- accords --- */
 for(let n=1;n<=16;n++) $('glen').add(new Option(n+(n>1?' mesures':' mesure'),n));
@@ -1086,7 +1159,8 @@ $('bpreset').onchange=e=>{ pushUndo(); SC().bass=parseBass(BASS_PRESETS[e.target
 $('bfollow').onchange=e=>{ SONG.bass.follow=e.target.checked; renderRoll(); save(); };
 let bedit='note';
 seg($('bedit'),{note:'Note',acc:'Accent',lig:'Liaison'},()=>bedit,k=>{ bedit=k; bhint(); });
-function bhint(){ $('bhint').innerHTML={note:'Touche une case pour poser une note (une seule par colonne), retouche-la pour l\'effacer. Touche un nom de note à gauche pour l\'écouter.',acc:'Touche une note pour l\'<b>accentuer</b> (plus forte, filtre plus ouvert).',lig:'Touche une note pour la <b>lier</b> à la précédente : même hauteur = note tenue, autre hauteur = glissando.'}[bedit]; }
+let bdur=1; seg($('bdur'),{d1:'Double croche',d2:'Croche',d3:'Croche pointée',d4:'Noire',d8:'Blanche',d16:'Ronde'},()=>'d'+bdur,k=>{ bdur=+k.slice(1); });
+function bhint(){ $('bhint').innerHTML={note:'Touche une case pour poser une note de la <b>durée</b> choisie, ou glisse vers la droite pour l\'allonger. Retouche une note pour l\'effacer (ou touche sa fin pour la raccourcir). Touche un nom de note à gauche pour l\'écouter.',acc:'Touche une note pour l\'<b>accentuer</b> (plus forte, filtre plus ouvert).',lig:'Touche une note pour la <b>lier</b> à la précédente : même hauteur = note tenue, autre hauteur = glissando.'}[bedit]; }
 $('bclear').onclick=()=>{ pushUndo(); SC().bass=Array(16).fill(null); renderRoll(); save(); };
 seg($('bwave'),{sawtooth:'Dent de scie',square:'Carré',triangle:'Triangle'},()=>SONG.bass.wave,k=>{ SONG.bass.wave=k; bassParams(); });
 [['Coupure du filtre','cutoff',60,4000,true,F.hz],['Résonance','res',0,1,false,F.pct],['Enveloppe du filtre','env',0,1,false,F.pct],['Déclin du filtre','decay',.03,1.5,true,F.s],['Glissando (durée)','glide',.01,.4,true,F.s],['Sous-oscillateur (octave grave)','sub',0,1,false,F.pct]]
@@ -1098,14 +1172,28 @@ function renderRoll(){ const g=$('roll'), sc=SC(); g.innerHTML=''; rollCells={};
     const lb=document.createElement('span'); lb.className='rl'+(ct?' ct':'')+(blk?' blk':''); lb.textContent=FRN[[0,0,1,1,2,3,3,4,4,5,5,6][pc]]+(blk?'♯':'')+(Math.floor(m/12)-2);
     lb.onclick=()=>{ audioOn(); const t=ctx.currentTime+.01; bassNote(m,t,false,false,.3,true); }; g.appendChild(lb);
     for(let k=0;k<16;k++){ const c=document.createElement('button'); c.className='rc'+(blk?' blk':'')+(k%4===0?' b4':'')+(ct?' ctr':''); c.setAttribute('aria-label','Note '+lb.textContent+' case '+(k+1));
-      c.onclick=()=>rollClick(n,k); g.appendChild(c); rollCells[n+'_'+k]=c; } }
+      c.dataset.n=n; c.dataset.k=k; g.appendChild(c); rollCells[n+'_'+k]=c; } }
   const rw=g.parentElement; requestAnimationFrame(()=>{ rw.scrollTop=rw.scrollHeight; }); paintRoll(); $('bpreset').value=sc.bpre in BASS_PRESETS?sc.bpre:'vide'; $('bfollow').checked=SONG.bass.follow; }
 function paintRoll(){ const sc=SC(); $('bscore').innerHTML=engraveBassLine(sc.bass); $('bsCap').textContent=SONG.bass.follow?'clé de Fa · écrite sur un accord de Do, transposée sur chaque accord':'clé de Fa'; Object.values(rollCells).forEach(c=>c.classList.remove('on','acc','lig'));
   sc.bass.forEach((st,k)=>{ if(!st) return; const c=rollCells[st.n+'_'+k]; if(c){ c.classList.add('on'); c.classList.toggle('acc',!!st.a); c.classList.toggle('lig',!!st.l); } }); }
-function rollClick(n,k){ const sc=SC(), st=sc.bass[k]; if(bedit==='note'||(st&&st.n===n)) pushUndo();
-  if(bedit==='note'){ if(st&&st.n===n) sc.bass[k]=null; else { sc.bass[k]={n,a:false,l:false}; if(!playing){ audioOn(); bassNote(36+n,ctx.currentTime+.01,false,false,.25,true); } } }
-  else if(st&&st.n===n){ if(bedit==='acc') st.a=!st.a; else st.l=!st.l; }
-  sc.bpre='perso'; $('bpreset').value=''; paintRoll(); save(); }
+// placer une note de longueur L (cases liées), effacer une note entière ou la raccourcir
+function chainEnd(b,k){ let e=k; while(e+1<16&&b[e+1]&&b[e+1].l&&b[e+1].n===b[k].n) e++; return e; }
+function chainStart(b,k){ let s=k; while(s>0&&b[s]&&b[s].l&&b[s-1]&&b[s-1].n===b[s].n) s--; return s; }
+function placeNote(b,n,k,L){ const e=Math.min(15,k+L-1); for(let j=k;j<=e;j++) b[j]=j===k?{n,a:false,l:false}:{n,a:false,l:true}; if(e+1<16&&b[e+1]&&b[e+1].l) b[e+1].l=false; }
+let rollDrag=null;
+$('roll').addEventListener('pointerdown',e=>{ const c=e.target.closest('.rc'); if(!c) return; e.preventDefault(); const n=+c.dataset.n, k=+c.dataset.k, sc=SC(), st=sc.bass[k];
+  pushUndo();
+  if(bedit!=='note'){ if(st&&st.n===n){ const s0=chainStart(sc.bass,k); if(bedit==='acc') sc.bass[s0].a=!sc.bass[s0].a; else st.l=!st.l; } }
+  else if(st&&st.n===n){ const s0=chainStart(sc.bass,k), e0=chainEnd(sc.bass,k);
+    if(k===s0){ for(let j=s0;j<=e0;j++) sc.bass[j]=null; }      // touche le début : efface la note
+    else { for(let j=k;j<=e0;j++) sc.bass[j]=null; } }          // touche plus loin : raccourcit
+  else { const snap=sc.bass.map(x=>x&&{...x}); placeNote(sc.bass,n,k,bdur); rollDrag={n,k,snap};
+    if(!playing){ audioOn(); bassNote(36+n,ctx.currentTime+.01,false,false,Math.min(.6,bdur*sdur()),true); } }
+  sc.bpre='perso'; $('bpreset').value=''; paintRoll(); save(); });
+$('roll').addEventListener('pointermove',e=>{ if(!rollDrag) return; const el=document.elementFromPoint(e.clientX,e.clientY), c=el&&el.closest('.rc'); if(!c) return;
+  const k2=+c.dataset.k; if(k2<rollDrag.k) return; const sc=SC(), L=Math.max(bdur,k2-rollDrag.k+1);
+  sc.bass=rollDrag.snap.map(x=>x&&{...x}); placeNote(sc.bass,rollDrag.n,rollDrag.k,L); paintRoll(); });
+const rollUp=()=>{ if(rollDrag){ rollDrag=null; save(); } }; window.addEventListener('pointerup',rollUp); window.addEventListener('pointercancel',rollUp);
 
 /* --- synthé --- */
 seg($('swave'),{sine:'Sinus',triangle:'Triangle',sawtooth:'Dent de scie',square:'Carré'},()=>SONG.synth.wave,k=>SONG.synth.wave=k);
@@ -1229,10 +1317,11 @@ $('clead').checked=SONG.chords.lead; $('svib').checked=SONG.synth.vib;
   renderMchips(); renderChords(); renderScene(); renderStrips(); renderFx(); buildKb(); refreshers.forEach(f=>f()); }
 function paintPh(s,barI){
   document.querySelectorAll('.cell.ph,.rc.ph,.slot.ph').forEach(c=>c.classList.remove('ph'));
-  if(s<0){ const bp=document.getElementById('bsPh'); if(bp) bp.setAttribute('x',-200); return; } seqCells.forEach(r=>r[s]&&r[s].classList.add('ph'));
+  if(s<0){ const bp=document.getElementById('bsPh'); if(bp) bp.setAttribute('x',-200); const dp=document.getElementById('dsPh'); if(dp) dp.setAttribute('x',-200); return; } seqCells.forEach(r=>r[s]&&r[s].classList.add('ph'));
   for(let n=ROLL_LO-36;n<=ROLL_HI-36;n++){ const c=rollCells[n+'_'+s]; if(c) c.classList.add('ph'); }
   if(SONG.chords.src==='grille'){ const el=slotEls[barI%SC().len]; if(el) el.classList.add('ph'); }
   const bp=document.getElementById('bsPh'); if(bp) bp.setAttribute('x',BS_LEFT+s*BS_STEP);
+  const dp=document.getElementById('dsPh'); if(dp) dp.setAttribute('x',DS_LEFT+s*DS_STEP);
 }
 let lastS=-1;
 (function loop(){
