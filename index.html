@@ -13,7 +13,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#121419;--panel:#1b1e26;--panel2:#22262f;--line:#2e333e;--text:#ece9e2;--muted:#9aa1ad;
-  --dr:#ff6b6b;--ch:#f5a623;--ba:#2ec4b6;--sy:#c792ea;--mx:#7bd389;--bor:#c792ea;--mono:'JetBrains Mono',ui-monospace,monospace}
+  --dr:#ff6b6b;--ch:#f5a623;--ba:#2ec4b6;--sy:#c792ea;--mx:#7bd389;--bor:#c792ea;--sec:#4fc3f7;--mono:'JetBrains Mono',ui-monospace,monospace}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--text);font-family:'Space Grotesk',system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
 button,select,input{font:inherit}
@@ -113,6 +113,8 @@ details.help b{color:var(--text)}
 .pad.down{background:var(--c);color:#121419}.pad.down .rn{color:#121419}
 .pad.lit{box-shadow:0 0 0 2px var(--c) inset}
 .pad.borrow{--c:var(--bor)}
+.pad.sec{--c:var(--sec)}
+.slot.sec .rn{color:var(--sec)}
 .pad.same{opacity:.35}
 .pad.same::after{content:'=';position:absolute;top:3px;right:8px;color:var(--muted);font-size:12px}
 .padhead{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:10px 0 6px}
@@ -227,11 +229,14 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
     <div class="now" style="margin-top:8px"><span class="big" id="cbig">–</span><span><span id="crn" style="font-family:var(--mono)"></span><br><span class="nt" id="cnotes"></span></span></div>
     <div class="padhead"><h3 id="homeTitle">Accords de la tonalité</h3><span class="lbl kbhint">touches 1 à 7</span></div>
     <div class="pads" id="homePads"></div>
+    <div class="padhead"><h3 style="color:var(--sec)">Dominantes secondaires</h3><span class="seg" id="secmode" style="--c:var(--sec)"></span><span class="lbl kbhint">touches Q S D F G H J</span></div>
+    <div class="pads" id="secPads"></div>
     <div class="padhead"><h3 style="color:var(--bor)">Échange intermodal : emprunts au mode</h3><select id="borrow"></select><span class="lbl kbhint">touches A Z E R T Y U</span></div>
     <div class="pads" id="borPads"></div>
     <details class="help"><summary>Comprendre</summary>
       <p><b>Grille</b> : jusqu'à 16 mesures, un accord par mesure. Touche <b>✎ Écrire</b>, choisis une case puis un pad : l'accord s'inscrit et on passe à la case suivante. En lecture, la grille tourne en boucle, et la basse la suit.</p>
       <p><b>Live</b> : la grille est ignorée, l'accord joué est celui du dernier pad touché, au rythme choisi. Idéal pour improviser une grille en direct.</p>
+      <p><b>Dominantes secondaires</b> : un accord de 7e placé juste avant un accord de la tonalité pour le préparer, comme G7 prépare C (en C : A7 → Dm, E7 → Am…). <b>Diminuée</b> : l'accord de 7e diminuée un demi-ton sous l'accord visé (C♯dim7 → Dm). <b>Substitution tritonique</b> : l'accord de 7e un triton plus loin, la basse descend par demi-ton (E♭7 → Dm, D♭7 → C).</p>
       <p><b>Échange intermodal</b> : la deuxième rangée prend les accords d'un autre mode sur la même tonique (en C : Fm, A♭, B♭ empruntés à Do mineur…). Les pads « = » sont identiques à la tonalité.</p>
     </details>
   </div>
@@ -546,8 +551,19 @@ function chordOf(sc,i,four,tonicPc){
   const pre=diff<0?'♭'.repeat(-diff):'♯'.repeat(diff);
   return {name:nameEN(notes[0])+s, roman:pre+ROM[i]+s, tri:pre+ROM[i]+s3, pcs:notes.map(pcOf), ints, fr:notes.map(nameFR).join(' '), key:rp+'|'+ints.join(',')};
 }
+
+const SECS={v:{lbl:'V7/',iv:[0,4,7,10],dl:4,dp:7,suf:'7'}, dim:{lbl:'VII°7/',iv:[0,3,6,9],dl:6,dp:11,suf:'dim7'}, sub:{lbl:'SubV7/',iv:[0,4,7,10],dl:1,dp:1,suf:'7'}};
+function secChord(kind,t,mode,d){
+  const sc=scaleOf(t,mode), tg=sc[d], tgp=pcOf(tg), S=SECS[kind], tonicPc=pcOf(t);
+  const rl=(tg.l+S.dl)%7, rp=(tgp+S.dp)%12, mk=(l,pc)=>{ let a=((pc-NAT[l])%12+12)%12; if(a>6)a-=12; return {l,a}; };
+  const notes=S.iv.map((iv,k)=>mk((rl+2*k)%7,(rp+iv)%12));
+  let diff=((tgp-tonicPc+12)%12)-MAJ[d]; if(diff>6)diff-=12; if(diff<-6)diff+=12;
+  const roman=S.lbl+(diff<0?'♭'.repeat(-diff):'♯'.repeat(diff))+ROM[d], target=chordOf(sc,d,false,tonicPc);
+  return {name:nameEN(notes[0])+S.suf, roman, tri:roman, pcs:notes.map(pcOf), ints:S.iv.slice(1), fr:notes.map(nameFR).join(' '), key:'s'+rp+'|'+S.iv.join(','), sec:kind, target:target.name};
+}
+const secTargets=(t,mode)=>{ const sc=scaleOf(t,mode), tp=pcOf(t); return [0,1,2,3,4,5,6].filter(i=>{ const c=chordOf(sc,i,false,tp), s=c.name.slice(nameEN(sc[i]).length); return s===''||s==='m'; }); };
 const tonicNote=()=>{ const [,l,a]=TONICS[SONG.tonic]; return {l,a}; };
-function resolve(ref){ if(!ref) return null; const t=tonicNote(); const sc=scaleOf(t, ref.b||SONG.mode); const c=chordOf(sc,ref.d,SONG.chords.four,pcOf(t)); c.bor=!!ref.b && ref.b!==SONG.mode; return c; }
+function resolve(ref){ if(!ref) return null; const t=tonicNote(); if(ref.s) return secChord(ref.s,t,SONG.mode,ref.d); const sc=scaleOf(t, ref.b||SONG.mode); const c=chordOf(sc,ref.d,SONG.chords.four,pcOf(t)); c.bor=!!ref.b && ref.b!==SONG.mode; return c; }
 
 /* ======================================================================
    MORCEAU (état sauvegardé)
@@ -580,7 +596,7 @@ const STYLES = {
 };
 const newScene = () => ({drums:drumFromPreset('rock'), cpat:'croches', len:4, bars:[{b:null,d:0},{b:null,d:4},{b:null,d:5},{b:null,d:3}].concat(Array(12).fill(null)), bass:parseBass(BASS_PRESETS.rock.s), bpre:'rock'});
 const DEF_SONG = () => ({v:1, bpm:100, swing:0, res:8, tonic:0, mode:'ionien', kit:'acou', cur:0,
-  chords:{sound:'ep', four:false, lead:true, borrow:'eolien', src:'grille'},
+  chords:{sound:'ep', four:false, lead:true, borrow:'eolien', src:'grille', sec:'v'},
   bass:{wave:'sawtooth', cutoff:350, res:.45, env:.55, decay:.22, glide:.08, sub:.35, follow:true},
   synth:{wave:'sawtooth', detune:0, noise:0, ftype:'lowpass', cutoff:2400, fres:.15, famt:1.5, fa:.01, fd:.4, fs:.4, fr:.4, a:.01, d:.3, s:.7, r:.4, vib:false},
   mix:{drums:{vol:.85,mute:false,solo:false,rev:.08}, chords:{vol:.6,mute:false,solo:false,rev:.3}, bass:{vol:.8,mute:false,solo:false,rev:0}, synth:{vol:.65,mute:false,solo:false,rev:.25}, master:.85},
@@ -882,6 +898,7 @@ Object.entries(CPAT).forEach(([k,o])=>$('cpat').add(new Option(o.n,k)));
 $('cpat').onchange=e=>{ SC().cpat=e.target.value; arpI=0; save(); };
 $('cfour').onchange=e=>{ SONG.chords.four=e.target.checked; curChordKey=null; renderChords(); save(); };
 $('clead').onchange=e=>{ SONG.chords.lead=e.target.checked; save(); };
+seg($('secmode'),{v:'Dominante V7',dim:'Diminuée VII°7',sub:'Substitution tritonique'},()=>SONG.chords.sec,k=>{ SONG.chords.sec=k; renderPads(); });
 $('borrow').onchange=e=>{ SONG.chords.borrow=e.target.value; renderPads(); save(); };
 let writing=false, selSlot=0;
 $('gwrite').onclick=()=>{ writing=!writing; renderGrille(); };
@@ -889,15 +906,15 @@ $('gdel').onclick=()=>{ SC().bars[selSlot]=null; curChordKey=null; renderGrille(
 $('gclear').onclick=()=>{ SC().bars=Array(16).fill(null); curChordKey=null; renderGrille(); save(); };
 let slotEls=[];
 function renderGrille(){ const sc=SC(), g=$('grille'); g.innerHTML=''; slotEls=[];
-  for(let i=0;i<16;i++){ const ch=resolve(sc.bars[i]), b=document.createElement('button'); b.className='slot'+(ch?' full':'')+(ch&&ch.bor?' bor':'')+(i>=sc.len?' off':'')+(writing&&i===selSlot?' sel':'');
+  for(let i=0;i<16;i++){ const ch=resolve(sc.bars[i]), b=document.createElement('button'); b.className='slot'+(ch?' full':'')+(ch&&ch.bor?' bor':'')+(ch&&ch.sec?' sec':'')+(i>=sc.len?' off':'')+(writing&&i===selSlot?' sel':'');
     b.innerHTML=`<span class="n">${i+1}</span>`+(ch?`<span class="rn">${ch.roman}</span><span class="cn">${ch.name}</span>`:'<span class="rn" style="color:var(--muted)">—</span>');
     b.onclick=()=>{ if(i>=sc.len){ sc.len=i+1; $('glen').value=sc.len; } selSlot=i; writing=true; renderGrille(); save(); };
     g.appendChild(b); slotEls.push(b); }
   $('gwrite').classList.toggle('on',writing); $('gwrite').textContent=writing?'✎ Écriture : case '+(selSlot+1):'✎ Écrire';
   $('ghint').innerHTML = SONG.chords.src==='live' ? 'Mode <b>live</b> : la grille est ignorée, touche les pads pendant la lecture.' : writing ? 'Touche un pad pour l\'inscrire dans la case <b>'+(selSlot+1)+'</b>. Retouche « Écriture » pour terminer.' : 'Touche ✎ Écrire (ou une case), puis les pads, pour composer la grille.';
 }
-const HOMEKEYS=['Digit1','Digit2','Digit3','Digit4','Digit5','Digit6','Digit7'], BORKEYS=['KeyQ','KeyW','KeyE','KeyR','KeyT','KeyY','KeyU'], BORLBL=['A','Z','E','R','T','Y','U'];
-let homeEls=[], borEls=[], heldChord=null;
+const HOMEKEYS=['Digit1','Digit2','Digit3','Digit4','Digit5','Digit6','Digit7'], BORKEYS=['KeyQ','KeyW','KeyE','KeyR','KeyT','KeyY','KeyU'], BORLBL=['A','Z','E','R','T','Y','U'], SECKEYS=['KeyA','KeyS','KeyD','KeyF','KeyG','KeyH','KeyJ'], SECLBL=['Q','S','D','F','G','H','J'];
+let homeEls=[], borEls=[], secEls=[], heldChord=null;
 function makePad(ref,cls,kk,homeCh){ const ch=resolve(ref), b=document.createElement('button'); b.className='pad '+cls+(homeCh&&homeCh.key===ch.key?' same':''); b._ref=ref;
   b.innerHTML=`<span class="kk">${kk}</span><span class="rn">${ch.roman}</span><span class="cn">${ch.name}</span>`;
   b.addEventListener('pointerdown',e=>{ e.preventDefault(); try{b.setPointerCapture(e.pointerId)}catch(_){} b.classList.add('down'); padPress(b); });
@@ -906,8 +923,9 @@ function makePad(ref,cls,kk,homeCh){ const ch=resolve(ref), b=document.createEle
 function renderPads(){ const t=tonicNote(); $('homeTitle').textContent='Accords de '+TONICS[SONG.tonic][0]+' '+MODES[SONG.mode].n.toLowerCase();
   const hp=$('homePads'), bp=$('borPads'); hp.innerHTML=''; bp.innerHTML='';
   homeEls=[...Array(7)].map((_,i)=>{ const p=makePad({b:null,d:i},'',i+1); hp.appendChild(p); return p; });
-  borEls=[...Array(7)].map((_,i)=>{ const p=makePad({b:SONG.chords.borrow,d:i},'borrow',BORLBL[i],resolve({b:null,d:i})); bp.appendChild(p); return p; }); }
-function showChord(ch){ $('cbig').textContent=ch?ch.name:'–'; $('cbig').style.color=ch&&ch.bor?'var(--bor)':''; $('crn').textContent=ch?ch.roman+(ch.bor?' · emprunt':''):''; $('cnotes').textContent=ch?ch.fr:''; $('nowc').textContent=ch?ch.name:'–'; }
+  borEls=[...Array(7)].map((_,i)=>{ const p=makePad({b:SONG.chords.borrow,d:i},'borrow',BORLBL[i],resolve({b:null,d:i})); bp.appendChild(p); return p; });
+  const sp=$('secPads'); sp.innerHTML=''; secEls=secTargets(t,SONG.mode).map((d,k)=>{ const p=makePad({s:SONG.chords.sec,d},'sec',SECLBL[k]); sp.appendChild(p); return p; }); }
+function showChord(ch){ $('cbig').textContent=ch?ch.name:'–'; $('cbig').style.color=ch&&ch.sec?'var(--sec)':ch&&ch.bor?'var(--bor)':''; $('crn').textContent=ch?ch.roman+(ch.sec?' · se résout sur '+ch.target:ch.bor?' · emprunt':''):''; $('cnotes').textContent=ch?ch.fr:''; $('nowc').textContent=ch?ch.name:'–'; }
 function padPress(b){ audioOn(); const ref=b._ref, ch=resolve(ref);
   if(writing){ SC().bars[selSlot]=ref; curChordKey=null; selSlot=(selSlot+1)%SC().len; renderGrille(); save(); }
   if(playing&&SONG.chords.src==='live'){ liveRef=ref; showChord(ch); return; }
@@ -1015,7 +1033,7 @@ window.addEventListener('keydown',e=>{
   if(e.repeat||e.metaKey||e.ctrlKey||e.altKey||e.target.tagName==='SELECT'||(e.target.tagName==='INPUT'&&e.target.type!=='range'&&e.target.type!=='checkbox')) return;
   if(e.code==='Space'){ e.preventDefault(); playing?stop():start(); return; }
   if(curTab==='drums'){ const d=DPAD.find(x=>x[1]===e.code); if(d){ e.preventDefault(); padDrum(IDX[d[0]]); } }
-  else if(curTab==='chords'){ let i=HOMEKEYS.indexOf(e.code), el=i>=0?homeEls[i]:null; if(!el){ i=BORKEYS.indexOf(e.code); if(i>=0) el=borEls[i]; } if(el){ e.preventDefault(); kdown.set(e.code,el); el.classList.add('down'); padPress(el); } }
+  else if(curTab==='chords'){ let i=HOMEKEYS.indexOf(e.code), el=i>=0?homeEls[i]:null; if(!el){ i=BORKEYS.indexOf(e.code); if(i>=0) el=borEls[i]; } if(!el){ i=SECKEYS.indexOf(e.code); if(i>=0) el=secEls[i]; } if(el){ e.preventDefault(); kdown.set(e.code,el); el.classList.add('down'); padPress(el); } }
   else if(curTab==='synth'){ if(e.code in KEYMAP){ e.preventDefault(); const m=sBase+KEYMAP[e.code]; kdown.set(e.code,m); if(sHold){ sactive.has(m)?sNoteOff(m):sNoteOn(m); } else sNoteOn(m); } }
 });
 window.addEventListener('keyup',e=>{ const v=kdown.get(e.code); if(v==null) return; kdown.delete(e.code);
