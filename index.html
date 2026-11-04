@@ -244,6 +244,7 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
     <div class="row"><span class="lbl">Son</span><span class="seg" id="csound" style="--c:var(--ch)"></span>
       <span class="lbl">Rythme</span><select id="cpat"></select></div>
     <div class="row" style="margin-top:8px"><span class="lbl">Accords</span><span class="seg" id="cnb" style="--c:var(--ch)"></span>
+      <span class="lbl">Basse</span><span class="seg" id="cbass" style="--c:var(--ch)"></span>
       <label class="chk"><input type="checkbox" id="clead"> Enchaînement doux</label>
       <span class="lbl">Octave</span><span class="seg" id="coct" style="--c:var(--ch)"></span></div>
     <div class="now" style="margin-top:8px"><div class="cstaff" id="cstaff"></div><span class="big" id="cbig">–</span><span><span id="crn" style="font-family:var(--mono)"></span><br><span class="nt" id="cnotes"></span></span></div>
@@ -256,6 +257,8 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
     <details class="help"><summary>Comprendre</summary>
       <p><b>Grille</b> : jusqu'à 16 mesures, un accord par mesure. Touche <b>✎ Écrire</b>, choisis une case puis un pad : l'accord s'inscrit et on passe à la case suivante. En lecture, la grille tourne en boucle, et la basse la suit.</p>
       <p><b>Live</b> : la grille est ignorée, l'accord joué est celui du dernier pad touché, au rythme choisi. Idéal pour improviser une grille en direct.</p>
+      <p><b>3, 4 ou 5 sons</b> : le réglage vaut pour les prochains accords que tu inscris ; chaque case de la grille garde le sien, on peut donc mélanger triades, septièmes et neuvièmes.</p>
+      <p><b>Basse</b> : choisis une note de la gamme pour la mettre sous les accords (F/G, C/E…). Si c'est une note de l'accord, c'est un <b>renversement</b> ; sinon, c'est une <b>basse étrangère</b>. La basse de la Groovebox joue alors cette note. Reviens sur « Fondamentale » pour les accords normaux.</p>
       <p><b>Dominantes secondaires</b> : un accord de 7e placé juste avant un accord de la tonalité pour le préparer, comme G7 prépare C (en C : A7 → Dm, E7 → Am…). <b>Diminuée</b> : l'accord de 7e diminuée un demi-ton sous l'accord visé (C♯dim7 → Dm). <b>Substitution tritonique</b> : l'accord de 7e un triton plus loin, la basse descend par demi-ton (E♭7 → Dm, D♭7 → C).</p>
       <p><b>Échange intermodal</b> : la deuxième rangée prend les accords d'un autre mode sur la même tonique (en C : Fm, A♭, B♭ empruntés à Do mineur…). Les pads « = » sont identiques à la tonalité.</p>
     </details>
@@ -605,7 +608,11 @@ function secChord(kind,t,mode,d,nb){
 }
 const secTargets=(t,mode)=>{ const sc=scaleOf(t,mode), tp=pcOf(t); return [0,1,2,3,4,5,6].filter(i=>{ const c=chordOf(sc,i,false,tp), s=c.name.slice(nameEN(sc[i]).length); return s===''||s==='m'; }); };
 const tonicNote=()=>{ const [,l,a]=TONICS[SONG.tonic]; return {l,a}; };
-function resolve(ref){ if(!ref) return null; const t=tonicNote(); if(ref.s) return secChord(ref.s,t,SONG.mode,ref.d,SONG.chords.nb); const sc=scaleOf(t, ref.b||SONG.mode); const c=chordOf(sc,ref.d,SONG.chords.nb,pcOf(t)); c.bor=!!ref.b && ref.b!==SONG.mode; return c; }
+function resolve(ref){ if(!ref) return null; const t=tonicNote(), n=ref.n||SONG.chords.nb; let c;
+  if(ref.s) c=secChord(ref.s,t,SONG.mode,ref.d,n); else { const sc=scaleOf(t, ref.b||SONG.mode); c=chordOf(sc,ref.d,n,pcOf(t)); c.bor=!!ref.b && ref.b!==SONG.mode; }
+  if(ref.bd!=null){ const bn=scaleOf(t,SONG.mode)[ref.bd], bp=pcOf(bn);
+    if(bp!==c.pcs[0]){ c.bassPc=bp; c.bassNote=bn; c.inv=c.pcs.includes(bp); c.name+='/'+nameEN(bn); c.key+='/'+bp; c.fr+=' / basse '+nameFR(bn); } }
+  return c; }
 
 /* ======================================================================
    PARTITIONS
@@ -813,9 +820,9 @@ const STYLES = {
   reggae:{nom:'Reggae one drop', drum:'reggae', bass:'reggae', cp:'skank'}, stepper:{nom:'Reggae stepper', drum:'stepper', bass:'reggae', cp:'skank'},
   jazz:{nom:'Jazz swing', drum:'jazz', bass:'walking', cp:'charleston'}, bossa:{nom:'Bossa nova', drum:'bossa', bass:'bossa', cp:'bossa'},
 };
-const newScene = () => ({drums:drumFromPreset('rock'), cpat:'croches', len:4, bars:[{b:null,d:0},{b:null,d:4},{b:null,d:5},{b:null,d:3}].concat(Array(12).fill(null)), bass:parseBass(BASS_PRESETS.rock.s), bpre:'rock'});
+const newScene = () => ({drums:drumFromPreset('rock'), cpat:'croches', len:4, bars:[{b:null,d:0,n:3},{b:null,d:4,n:3},{b:null,d:5,n:3},{b:null,d:3,n:3}].concat(Array(12).fill(null)), bass:parseBass(BASS_PRESETS.rock.s), bpre:'rock'});
 const DEF_SONG = () => ({v:1, bpm:100, swing:0, res:8, tonic:0, mode:'ionien', kit:'acou', cur:0,
-  chords:{sound:'ep', nb:3, lead:true, borrow:'eolien', src:'grille', sec:'v', oct:0},
+  chords:{sound:'ep', nb:3, bd:null, lead:true, borrow:'eolien', src:'grille', sec:'v', oct:0},
   bass:{wave:'sawtooth', cutoff:350, res:.45, env:.55, decay:.22, glide:.08, sub:.35, follow:true},
   synth:{wave:'sawtooth', detune:0, noise:0, ftype:'lowpass', cutoff:2400, fres:.15, famt:1.5, fa:.01, fd:.4, fs:.4, fr:.4, a:.01, d:.3, s:.7, r:.4, vib:false, bend:2},
   mix:{drums:{vol:.85,mute:false,solo:false,rev:.08}, chords:{vol:.6,mute:false,solo:false,rev:.3}, bass:{vol:.8,mute:false,solo:false,rev:0}, synth:{vol:.65,mute:false,solo:false,rev:.25}, master:.85},
@@ -823,7 +830,7 @@ const DEF_SONG = () => ({v:1, bpm:100, swing:0, res:8, tonic:0, mode:'ionien', k
   scenes:[newScene(),newScene(),newScene(),newScene()]});
 function deepMerge(t,s){ for(const k in s){ if(s[k]&&typeof s[k]==='object'&&!Array.isArray(s[k])&&t[k]&&typeof t[k]==='object'&&!Array.isArray(t[k])) deepMerge(t[k],s[k]); else t[k]=s[k]; } return t; }
 let SONG = DEF_SONG();
-try{ const s=JSON.parse(localStorage.getItem('groovebox-morceau')||'null'); if(s&&s.v===1&&Array.isArray(s.scenes)&&s.scenes.length===4){ if(s.chords&&s.chords.nb==null) s.chords.nb=s.chords.four?4:3; SONG=deepMerge(DEF_SONG(),s); } }catch(e){}
+try{ const s=JSON.parse(localStorage.getItem('groovebox-morceau')||'null'); if(s&&s.v===1&&Array.isArray(s.scenes)&&s.scenes.length===4){ if(s.chords&&s.chords.nb==null) s.chords.nb=s.chords.four?4:3; const nb0=(s.chords&&s.chords.nb)||3; s.scenes.forEach(sc=>(sc.bars||[]).forEach(r=>{ if(r&&!r.n) r.n=nb0; })); SONG=deepMerge(DEF_SONG(),s); } }catch(e){}
 let saveT=null; const save=()=>{ clearTimeout(saveT); saveT=setTimeout(()=>{ try{ localStorage.setItem('groovebox-morceau',JSON.stringify(SONG)); }catch(e){} },400); };
 const SC = () => SONG.scenes[SONG.cur];
 
@@ -971,6 +978,7 @@ function mapBass(n,ch){
   if(!SONG.bass.follow||!ch) return 36+n;
   const oct=Math.floor(n/12), i=((n%12)+12)%12, ints=ch.ints;
   let m=i; if(i===3||i===4) m=ints[0]; else if(i>=6&&i<=8) m=ints[1]; else if((i===10||i===11)&&ints[2]!=null) m=ints[2];
+  if(ch.bassPc!=null){ const o2=((ch.bassPc+5)%12)-5; return 36+oct*12+o2+i; }
   const off=((ch.pcs[0]+5)%12)-5; return 36+oct*12+off+m;
 }
 
@@ -1146,10 +1154,15 @@ function makePad(ref,cls,kk,homeCh){ const ch=resolve(ref), b=document.createEle
   return b; }
 function renderPads(){ const t=tonicNote(); $('homeTitle').textContent='Accords de '+TONICS[SONG.tonic][0]+' '+MODES[SONG.mode].n.toLowerCase();
   const hp=$('homePads'), bp=$('borPads'); hp.innerHTML=''; bp.innerHTML='';
-  homeEls=[...Array(7)].map((_,i)=>{ const p=makePad({b:null,d:i},'',i+1); hp.appendChild(p); return p; });
-  borEls=[...Array(7)].map((_,i)=>{ const p=makePad({b:SONG.chords.borrow,d:i},'borrow',BORLBL[i],resolve({b:null,d:i})); bp.appendChild(p); return p; });
-  const sp=$('secPads'); sp.innerHTML=''; secEls=secTargets(t,SONG.mode).map((d,k)=>{ const p=makePad({s:SONG.chords.sec,d},'sec',SECLBL[k]); sp.appendChild(p); return p; }); }
-function showChord(ch,notes){ $('cstaff').innerHTML = ch&&notes ? chordStaff(notes, 36+((ch.pcs[0]-36)%12+12)%12, ch.nn) : chordStaff([],null); $('cbig').textContent=ch?ch.name:'–'; $('cbig').style.color=ch&&ch.sec?'var(--sec)':ch&&ch.bor?'var(--bor)':''; $('crn').textContent=ch?ch.roman+(ch.sec?' · se résout sur '+ch.target:ch.bor?' · emprunt':''):''; $('cnotes').textContent=ch?ch.fr:''; $('nowc').textContent=ch?ch.name:'–'; }
+  const n=SONG.chords.nb, bd=SONG.chords.bd;
+  homeEls=[...Array(7)].map((_,i)=>{ const p=makePad({b:null,d:i,n,bd},'',i+1); hp.appendChild(p); return p; });
+  borEls=[...Array(7)].map((_,i)=>{ const p=makePad({b:SONG.chords.borrow,d:i,n,bd},'borrow',BORLBL[i],resolve({b:null,d:i,n,bd})); bp.appendChild(p); return p; });
+  const sp=$('secPads'); sp.innerHTML=''; secEls=secTargets(t,SONG.mode).map((d,k)=>{ const p=makePad({s:SONG.chords.sec,d,n,bd},'sec',SECLBL[k]); sp.appendChild(p); return p; });
+  renderBassSel(); }
+function renderBassSel(){ const box=$('cbass'); box.innerHTML=''; const sc=scaleOf(tonicNote(),SONG.mode);
+  [['f','Fondamentale']].concat(sc.map((x,i)=>[String(i),nameFR(x)])).forEach(([k,lab])=>{ const b=document.createElement('button'); b.textContent=lab; const on=(k==='f'&&SONG.chords.bd==null)||(+k===SONG.chords.bd&&k!=='f'); b.classList.toggle('on',on);
+    b.onclick=()=>{ SONG.chords.bd=k==='f'?null:+k; save(); renderPads(); }; box.appendChild(b); }); }
+function showChord(ch,notes){ const bp=ch&&ch.bassPc!=null?ch.bassPc:ch?ch.pcs[0]:0; $('cstaff').innerHTML = ch&&notes ? chordStaff(notes, 36+((bp-36)%12+12)%12, ch.bassNote?ch.nn.concat([ch.bassNote]):ch.nn) : chordStaff([],null); $('cbig').textContent=ch?ch.name:'–'; $('cbig').style.color=ch&&ch.sec?'var(--sec)':ch&&ch.bor?'var(--bor)':''; $('crn').textContent=ch?ch.roman+(ch.bassNote?(ch.inv?' · renversement':' · basse étrangère'):'')+(ch.sec?' · se résout sur '+ch.target:ch.bor?' · emprunt':''):''; $('cnotes').textContent=ch?ch.fr:''; $('nowc').textContent=ch?ch.name:'–'; }
 function padPress(b){ audioOn(); const ref=b._ref, ch=resolve(ref);
   if(writing){ pushUndo(); SC().bars[selSlot]=ref; curChordKey=null; selSlot=(selSlot+1)%SC().len; renderGrille(); save(); }
   if(playing&&SONG.chords.src==='live'){ liveRef=ref; showChord(ch,voicing(ch.pcs)); return; }
