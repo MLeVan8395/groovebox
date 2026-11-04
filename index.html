@@ -173,6 +173,7 @@ details.help b{color:var(--text)}
 .score svg{min-width:400px;max-width:600px;margin:0 auto}
 .dlegend{font-size:12px;color:var(--muted);margin:6px 0 0;line-height:1.5}
 .cstaff{background:#f4f1ea;color:#1b1e26;border-radius:10px;padding:2px 4px;width:150px;flex:none}
+canvas.cv-filt{display:block;width:100%;height:100px;background:#0d0f13;border:1px solid var(--line);border-radius:10px;margin-top:6px}
 canvas.cv-env{display:block;width:100%;height:96px;background:#0d0f13;border:1px solid var(--line);border-radius:10px}
 .envs{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
 #sslF,#sslA{grid-template-columns:1fr 1fr}
@@ -298,6 +299,8 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
   <div class="panel">
     <div class="row"><span class="lbl">Forme d'onde</span><span class="seg" id="swave" style="--c:var(--sy)"></span>
       <label class="chk"><input type="checkbox" id="svib"> Vibrato</label></div>
+    <div class="row" style="margin-top:8px"><span class="lbl">Filtre</span><span class="seg" id="sftype" style="--c:var(--sy)"></span></div>
+    <canvas class="cv-filt" id="cvF"></canvas>
     <div class="sliders" id="ssl" style="margin-top:6px"></div>
     <div class="envs">
       <div><div class="lbl" style="margin:8px 0 4px">Enveloppe du filtre (ADSR)</div><canvas class="cv-env" id="cvFE"></canvas><div class="sliders" id="sslF"></div></div>
@@ -310,6 +313,7 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
     <div class="kbrow"><div class="wheelbox"><div class="wheel" id="wheel" role="slider" aria-label="Molette de pitch" tabindex="0"><div class="wthumb" id="wthumb"></div></div><span class="lbl" id="wval">0</span></div><div class="kb" id="kb" style="flex:1"></div></div>
     <div class="row" style="margin-top:6px"><span class="lbl">Molette de pitch</span><span class="seg" id="bendr" style="--c:var(--sy)"></span></div>
     <details class="help"><summary>Comprendre</summary>
+      <p><b>Filtre</b> : <b>passe-bas</b> = garde les graves (le son s'assombrit), <b>passe-haut</b> = garde les aigus (le son s'amincit), <b>passe-bande</b> = ne garde qu'une zone. La courbe montre ce que le filtre laisse passer, et elle bouge avec l'enveloppe du filtre pendant que tu joues.</p>
       <p><b>ADSR</b> : A = attaque, D = déclin, S = maintien (un <b>niveau</b>, pas un temps), R = relâchement. Le point blanc parcourt la courbe pendant que tu joues.</p>
       <p><b>Molette de pitch</b> : comme sur un vrai synthé, elle fait glisser la hauteur de toutes les notes vers le haut ou le bas, puis revient au centre quand on la lâche. Idéal pour imiter un bend de guitare.</p>
       <p>Le synthé pour jouer une <b>mélodie</b> ou un <b>solo</b> par-dessus le groove. Ses réglages sont ceux du <a href="https://mlevan8395.github.io/mini-synthe/" style="color:inherit">mini-synthé pédagogique</a> (oscillateur, filtre, enveloppes). Ses effets se règlent dans l'onglet <b>Mixeur</b>.</p>
@@ -1219,11 +1223,28 @@ const rollUp=()=>{ if(rollDrag){ rollDrag=null; save(); } }; window.addEventList
 
 /* --- synthé --- */
 seg($('swave'),{sine:'Sinus',triangle:'Triangle',sawtooth:'Dent de scie',square:'Carré'},()=>SONG.synth.wave,k=>SONG.synth.wave=k);
+seg($('sftype'),{lowpass:'Passe-bas',highpass:'Passe-haut',bandpass:'Passe-bande'},()=>SONG.synth.ftype,k=>{ SONG.synth.ftype=k; const now=ctx.currentTime;
+  svoices.forEach(v=>{ if(v.done) return; v.fl.type=k; v.fl.Q.setTargetAtTime(qFor(k,SONG.synth.fres),now,.02); }); });
+/* courbe de réponse du filtre */
+const vizF=ctx.createBiquadFilter(), NF=200, frq=new Float32Array(NF), mag=new Float32Array(NF), phs=new Float32Array(NF);
+for(let i=0;i<NF;i++) frq[i]=20*Math.pow(1000,i/(NF-1));
+function drawFilt(cv){ const f=fitCv(cv); if(!f) return; const {g,w,h}=f, P=SONG.synth; g.clearRect(0,0,w,h);
+  const fx=x=>Math.log(x/20)/Math.log(1000)*w, Y=db=>h-((Math.max(-42,Math.min(30,db))+42)/72)*h;
+  g.strokeStyle='#2e333e'; g.fillStyle='#9aa1ad'; g.font='10px JetBrains Mono, monospace'; g.lineWidth=1;
+  [100,1000,10000].forEach(v=>{ const x=fx(v); g.beginPath(); g.moveTo(x,0); g.lineTo(x,h); g.stroke(); g.fillText(v>=1000?v/1000+'k':v,x+3,h-4); });
+  let lvl=0; const v=lastSV; if(v&&!v.done){ const now=ctx.currentTime, e=v.fe; lvl=v.released?Math.max(0,v.lF*(1-(now-v.tr)/e.r)):envHeld(e,now-v.t0); }
+  const fc=Math.min(20000,Math.max(20,P.cutoff*Math.pow(2,P.famt*lvl)));
+  vizF.type=P.ftype; vizF.frequency.value=fc; vizF.Q.value=qFor(P.ftype,P.fres); vizF.getFrequencyResponse(frq,mag,phs);
+  g.beginPath(); for(let i=0;i<NF;i++){ const x=fx(frq[i]), y=Y(20*Math.log10(mag[i]+1e-9)); i?g.lineTo(x,y):g.moveTo(x,y); }
+  g.strokeStyle='#c792ea'; g.lineWidth=2.2; g.stroke(); g.lineTo(w,h); g.lineTo(0,h); g.closePath(); g.fillStyle='#c792ea22'; g.fill();
+  g.strokeStyle='#fff'; g.lineWidth=1.2; g.beginPath(); g.moveTo(fx(fc),0); g.lineTo(fx(fc),h); g.stroke();
+  g.fillStyle='#c792ea'; g.textAlign=fx(fc)>w-70?'right':'left'; g.fillText(F.hz(fc),fx(fc)+(fx(fc)>w-70?-4:4),12); g.textAlign='left'; }
 $('svib').onchange=e=>{ SONG.synth.vib=e.target.checked; synthVibUpdate(); save(); };
 [['ssl','Bruit','noise',0,1,false,F.pct],['ssl','Coupure du filtre','cutoff',60,16000,true,F.hz],['ssl','Résonance','fres',0,1,false,F.pct],['ssl','Quantité d\'enveloppe du filtre','famt',-3,5,false,F.oct],
  ['sslF','A · Attaque','fa',.001,3,true,F.s],['sslF','D · Déclin','fd',.005,3,true,F.s],['sslF','S · Maintien','fs',0,1,false,F.pct],['sslF','R · Relâchement','fr',.005,4,true,F.s],
  ['sslA','A · Attaque','a',.001,3,true,F.s],['sslA','D · Déclin','d',.005,3,true,F.s],['sslA','S · Maintien','s',0,1,false,F.pct],['sslA','R · Relâchement','r',.005,5,true,F.s]]
-  .forEach(([box,label,k,min,max,log,fmt])=>slider($(box),{label,min,max,log,get:()=>SONG.synth[k],set:v=>SONG.synth[k]=v,fmt}));
+  .forEach(([box,label,k,min,max,log,fmt])=>slider($(box),{label,min,max,log,get:()=>SONG.synth[k],set:v=>{ SONG.synth[k]=v; const now=ctx.currentTime;
+    if(k==='cutoff') svoices.forEach(x=>!x.done&&x.fl.frequency.setTargetAtTime(v,now,.015)); if(k==='fres') svoices.forEach(x=>!x.done&&x.fl.Q.setTargetAtTime(qFor(SONG.synth.ftype,v),now,.015)); if(k==='noise') svoices.forEach(x=>!x.done&&x.ng&&x.ng.gain.setTargetAtTime(v,now,.015)); },fmt}));
 /* courbes ADSR */
 function fitCv(cv){ const r=cv.getBoundingClientRect(), dpr=window.devicePixelRatio||1, w=Math.round(r.width*dpr), h=Math.round(r.height*dpr); if(!w) return null; if(cv.width!==w||cv.height!==h){ cv.width=w; cv.height=h; } const g=cv.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0); return {g,w:r.width,h:r.height}; }
 function drawEnv(cv,env,color,kind){
@@ -1351,7 +1372,7 @@ let lastS=-1;
     if(q.s!==lastS){ lastS=q.s; if(curTab==='drums'||curTab==='bass'||curTab==='chords') paintPh(q.s,q.bar);
       if(q.s%4===0) document.querySelectorAll('#beat i').forEach((i,k)=>i.classList.toggle('on',k===q.s/4));
       if(q.s===0){ showChord(q.ch,q.notes); renderScenes(); } } }
-  if(curTab==='synth'){ drawEnv($('cvFE'),{a:SONG.synth.fa,d:SONG.synth.fd,s:SONG.synth.fs,r:SONG.synth.fr},'#c792ea','filt'); drawEnv($('cvAE'),{a:SONG.synth.a,d:SONG.synth.d,s:SONG.synth.s,r:SONG.synth.r},'#7bd389','amp'); }
+  if(curTab==='synth'){ drawFilt($('cvF')); drawEnv($('cvFE'),{a:SONG.synth.fa,d:SONG.synth.fd,s:SONG.synth.fs,r:SONG.synth.fr},'#c792ea','filt'); drawEnv($('cvAE'),{a:SONG.synth.a,d:SONG.synth.d,s:SONG.synth.s,r:SONG.synth.r},'#7bd389','amp'); }
   if(curTab==='mix'){ Object.keys(CHN).forEach(k=>{ const c=CH[k]; c.an.getFloatTimeDomainData(c.buf); let p=0; for(let i=0;i<c.buf.length;i+=2) p=Math.max(p,Math.abs(c.buf[i])); if(meterEls[k]) meterEls[k].style.width=Math.min(100,p*130)+'%'; });
     if(meterEls.master){ const p=Math.max(...Object.keys(CHN).map(k=>parseFloat(meterEls[k].style.width)||0)); meterEls.master.style.width=p+'%'; } }
   requestAnimationFrame(loop);
