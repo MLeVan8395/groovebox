@@ -239,7 +239,7 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
   <div class="panel">
     <div class="row"><span class="lbl">Son</span><span class="seg" id="csound" style="--c:var(--ch)"></span>
       <span class="lbl">Rythme</span><select id="cpat"></select></div>
-    <div class="row" style="margin-top:8px"><label class="chk"><input type="checkbox" id="cfour"> Accords à 4 sons</label>
+    <div class="row" style="margin-top:8px"><span class="lbl">Accords</span><span class="seg" id="cnb" style="--c:var(--ch)"></span>
       <label class="chk"><input type="checkbox" id="clead"> Enchaînement doux</label>
       <span class="lbl">Octave</span><span class="seg" id="coct" style="--c:var(--ch)"></span></div>
     <div class="now" style="margin-top:8px"><div class="cstaff" id="cstaff"></div><span class="big" id="cbig">–</span><span><span id="crn" style="font-family:var(--mono)"></span><br><span class="nt" id="cnotes"></span></span></div>
@@ -564,31 +564,35 @@ const TONICS=[['C',0,0],['C♯',0,1],['D♭',1,-1],['D',1,0],['E♭',2,-1],['E',
 const MODES={ionien:{n:'Majeur (ionien)',iv:[0,2,4,5,7,9,11]}, eolien:{n:'Mineur naturel (éolien)',iv:[0,2,3,5,7,8,10]}, harm:{n:'Mineur harmonique',iv:[0,2,3,5,7,8,11]}, melo:{n:'Mineur mélodique',iv:[0,2,3,5,7,9,11]}, dorien:{n:'Dorien',iv:[0,2,3,5,7,9,10]}, phrygien:{n:'Phrygien',iv:[0,1,3,5,7,8,10]}, lydien:{n:'Lydien',iv:[0,2,4,6,7,9,11]}, mixo:{n:'Mixolydien',iv:[0,2,4,5,7,9,10]}, locrien:{n:'Locrien',iv:[0,1,3,5,6,8,10]}};
 const MAJ=[0,2,4,5,7,9,11], ROM=['I','II','III','IV','V','VI','VII'];
 const T3={'4,7':'','3,7':'m','3,6':'dim','4,8':'+'};
+const T5={'4,7,11,2':'maj9','4,7,10,2':'9','3,7,10,2':'m9','3,7,10,1':'m7(♭9)','3,6,10,1':'m7♭5(♭9)','3,6,10,2':'m9♭5','4,7,10,1':'7(♭9)','4,7,10,3':'7(♯9)','3,7,11,2':'m(maj9)','4,8,11,2':'maj9♯5','4,8,10,2':'9♯5','3,6,9,1':'dim7(♭9)','3,6,9,2':'dim7(9)'};
 const T4={'4,7,11':'maj7','4,7,10':'7','3,7,10':'m7','3,6,10':'m7♭5','3,6,9':'dim7','3,7,11':'m(maj7)','4,8,11':'maj7♯5','4,8,10':'7♯5'};
 const pcOf=n=>((NAT[n.l]+n.a)%12+12)%12;
 const nameEN=n=>LET[n.l]+ACC[n.a], nameFR=n=>FRN[n.l]+ACC[n.a];
 function scaleOf(t,mode){ const tp=pcOf(t); return MODES[mode].iv.map((x,i)=>{ const l=(t.l+i)%7; let a=((tp+x-NAT[l])%12+12)%12; if(a>6)a-=12; return {l,a}; }); }
-function chordOf(sc,i,four,tonicPc){
-  const idx=four?[0,2,4,6]:[0,2,4], notes=idx.map(k=>sc[(i+k)%7]), rp=pcOf(notes[0]);
+function chordOf(sc,i,nb,tonicPc){
+  const n=nb===true?4:(+nb||3);
+  const idx=[0,2,4,6,8].slice(0,n), notes=idx.map(k=>sc[(i+k)%7]), rp=pcOf(notes[0]);
   const ints=notes.slice(1).map(n=>(pcOf(n)-rp+12)%12);
-  const s3=T3[ints.slice(0,2).join(',')]??'?', s=four?(T4[ints.join(',')]??'?'):s3;
+  const s3=T3[ints.slice(0,2).join(',')]??'?', s4=T4[ints.slice(0,3).join(',')]??'?', s=n===3?s3:n===4?s4:(T5[ints.join(',')]??s4+'(9)');
   let diff=((rp-tonicPc+12)%12)-MAJ[i]; if(diff>6)diff-=12; if(diff<-6)diff+=12;
   const pre=diff<0?'♭'.repeat(-diff):'♯'.repeat(diff);
   return {nn:notes, name:nameEN(notes[0])+s, roman:pre+ROM[i]+s, tri:pre+ROM[i]+s3, pcs:notes.map(pcOf), ints, fr:notes.map(nameFR).join(' '), key:rp+'|'+ints.join(',')};
 }
 
 const SECS={v:{lbl:'V7/',iv:[0,4,7,10],dl:4,dp:7,suf:'7'}, dim:{lbl:'VII°7/',iv:[0,3,6,9],dl:6,dp:11,suf:'dim7'}, sub:{lbl:'SubV7/',iv:[0,4,7,10],dl:1,dp:1,suf:'7'}};
-function secChord(kind,t,mode,d){
+function secChord(kind,t,mode,d,nb){
   const sc=scaleOf(t,mode), tg=sc[d], tgp=pcOf(tg), S=SECS[kind], tonicPc=pcOf(t);
   const rl=(tg.l+S.dl)%7, rp=(tgp+S.dp)%12, mk=(l,pc)=>{ let a=((pc-NAT[l])%12+12)%12; if(a>6)a-=12; return {l,a}; };
-  const notes=S.iv.map((iv,k)=>mk((rl+2*k)%7,(rp+iv)%12));
+  const tgC=chordOf(scaleOf(t,mode),d,3,pcOf(t)), tgMin=(tgC.pcs[1]-tgC.pcs[0]+12)%12===3, five=(+nb===5)&&kind!=='dim', iv=five?S.iv.concat([kind==='v'&&tgMin?1:2]):S.iv;
+  const suf=five?(kind==='v'&&tgMin?'7(♭9)':'9'):S.suf;
+  const notes=iv.map((x,k)=>mk((rl+2*k)%7,(rp+x)%12));
   let diff=((tgp-tonicPc+12)%12)-MAJ[d]; if(diff>6)diff-=12; if(diff<-6)diff+=12;
-  const roman=S.lbl+(diff<0?'♭'.repeat(-diff):'♯'.repeat(diff))+ROM[d], target=chordOf(sc,d,false,tonicPc);
-  return {nn:notes, name:nameEN(notes[0])+S.suf, roman, tri:roman, pcs:notes.map(pcOf), ints:S.iv.slice(1), fr:notes.map(nameFR).join(' '), key:'s'+rp+'|'+S.iv.join(','), sec:kind, target:target.name};
+  const pre=(diff<0?'♭'.repeat(-diff):'♯'.repeat(diff))+ROM[d], tri=S.lbl+pre, roman=five?(kind==='sub'?'SubV'+suf+'/':'V'+suf+'/')+pre:tri, target=chordOf(sc,d,3,tonicPc);
+  return {nn:notes, name:nameEN(notes[0])+suf, roman, tri, pcs:notes.map(pcOf), ints:iv.slice(1), fr:notes.map(nameFR).join(' '), key:'s'+rp+'|'+iv.join(','), sec:kind, target:target.name};
 }
 const secTargets=(t,mode)=>{ const sc=scaleOf(t,mode), tp=pcOf(t); return [0,1,2,3,4,5,6].filter(i=>{ const c=chordOf(sc,i,false,tp), s=c.name.slice(nameEN(sc[i]).length); return s===''||s==='m'; }); };
 const tonicNote=()=>{ const [,l,a]=TONICS[SONG.tonic]; return {l,a}; };
-function resolve(ref){ if(!ref) return null; const t=tonicNote(); if(ref.s) return secChord(ref.s,t,SONG.mode,ref.d); const sc=scaleOf(t, ref.b||SONG.mode); const c=chordOf(sc,ref.d,SONG.chords.four,pcOf(t)); c.bor=!!ref.b && ref.b!==SONG.mode; return c; }
+function resolve(ref){ if(!ref) return null; const t=tonicNote(); if(ref.s) return secChord(ref.s,t,SONG.mode,ref.d,SONG.chords.nb); const sc=scaleOf(t, ref.b||SONG.mode); const c=chordOf(sc,ref.d,SONG.chords.nb,pcOf(t)); c.bor=!!ref.b && ref.b!==SONG.mode; return c; }
 
 /* ======================================================================
    PARTITIONS
@@ -723,7 +727,7 @@ const STYLES = {
 };
 const newScene = () => ({drums:drumFromPreset('rock'), cpat:'croches', len:4, bars:[{b:null,d:0},{b:null,d:4},{b:null,d:5},{b:null,d:3}].concat(Array(12).fill(null)), bass:parseBass(BASS_PRESETS.rock.s), bpre:'rock'});
 const DEF_SONG = () => ({v:1, bpm:100, swing:0, res:8, tonic:0, mode:'ionien', kit:'acou', cur:0,
-  chords:{sound:'ep', four:false, lead:true, borrow:'eolien', src:'grille', sec:'v', oct:0},
+  chords:{sound:'ep', nb:3, lead:true, borrow:'eolien', src:'grille', sec:'v', oct:0},
   bass:{wave:'sawtooth', cutoff:350, res:.45, env:.55, decay:.22, glide:.08, sub:.35, follow:true},
   synth:{wave:'sawtooth', detune:0, noise:0, ftype:'lowpass', cutoff:2400, fres:.15, famt:1.5, fa:.01, fd:.4, fs:.4, fr:.4, a:.01, d:.3, s:.7, r:.4, vib:false, bend:2},
   mix:{drums:{vol:.85,mute:false,solo:false,rev:.08}, chords:{vol:.6,mute:false,solo:false,rev:.3}, bass:{vol:.8,mute:false,solo:false,rev:0}, synth:{vol:.65,mute:false,solo:false,rev:.25}, master:.85},
@@ -731,7 +735,7 @@ const DEF_SONG = () => ({v:1, bpm:100, swing:0, res:8, tonic:0, mode:'ionien', k
   scenes:[newScene(),newScene(),newScene(),newScene()]});
 function deepMerge(t,s){ for(const k in s){ if(s[k]&&typeof s[k]==='object'&&!Array.isArray(s[k])&&t[k]&&typeof t[k]==='object'&&!Array.isArray(t[k])) deepMerge(t[k],s[k]); else t[k]=s[k]; } return t; }
 let SONG = DEF_SONG();
-try{ const s=JSON.parse(localStorage.getItem('groovebox-morceau')||'null'); if(s&&s.v===1&&Array.isArray(s.scenes)&&s.scenes.length===4) SONG=deepMerge(DEF_SONG(),s); }catch(e){}
+try{ const s=JSON.parse(localStorage.getItem('groovebox-morceau')||'null'); if(s&&s.v===1&&Array.isArray(s.scenes)&&s.scenes.length===4){ if(s.chords&&s.chords.nb==null) s.chords.nb=s.chords.four?4:3; SONG=deepMerge(DEF_SONG(),s); } }catch(e){}
 let saveT=null; const save=()=>{ clearTimeout(saveT); saveT=setTimeout(()=>{ try{ localStorage.setItem('groovebox-morceau',JSON.stringify(SONG)); }catch(e){} },400); };
 const SC = () => SONG.scenes[SONG.cur];
 
@@ -1027,7 +1031,7 @@ seg($('csound'),Object.fromEntries(Object.entries(CSOUNDS).map(([k,o])=>[k,o.n])
 Object.entries(CPAT).forEach(([k,o])=>$('cpat').add(new Option(o.n,k)));
 $('cpat').onchange=e=>{ SC().cpat=e.target.value; arpI=0; save(); };
 seg($('coct'),{'m1':'−1','z':'0','p1':'+1','p2':'+2'},()=>({'-1':'m1','0':'z','1':'p1','2':'p2'})[SONG.chords.oct||0],k=>{ SONG.chords.oct={m1:-1,z:0,p1:1,p2:2}[k]; lastVoicing=null; curChordKey=null; });
-$('cfour').onchange=e=>{ SONG.chords.four=e.target.checked; curChordKey=null; renderChords(); save(); };
+seg($('cnb'),{n3:'3 sons',n4:'4 sons',n5:'5 sons'},()=>'n'+SONG.chords.nb,k=>{ SONG.chords.nb=+k.slice(1); curChordKey=null; lastVoicing=null; renderChords(); });
 $('clead').onchange=e=>{ SONG.chords.lead=e.target.checked; save(); };
 seg($('secmode'),{v:'Dominante V7',dim:'Diminuée VII°7',sub:'Substitution tritonique'},()=>SONG.chords.sec,k=>{ SONG.chords.sec=k; renderPads(); });
 $('borrow').onchange=e=>{ SONG.chords.borrow=e.target.value; renderPads(); save(); };
@@ -1203,7 +1207,7 @@ window.addEventListener('keyup',e=>{ const v=kdown.get(e.code); if(v==null) retu
 /* --- rendu --- */
 function renderScene(){ renderScenes(); renderSeq(); renderGrille(); renderRoll(); $('glen').value=SC().len; $('cpat').value=SC().cpat; curChordKey=null; }
 function renderAll(){ $('bpm').textContent=SONG.bpm; $('tonic').value=SONG.tonic; $('mode').value=SONG.mode; $('kit').value=SONG.kit; $('borrow').value=SONG.chords.borrow;
-  $('cfour').checked=SONG.chords.four; $('clead').checked=SONG.chords.lead; $('svib').checked=SONG.synth.vib;
+$('clead').checked=SONG.chords.lead; $('svib').checked=SONG.synth.vib;
   renderMchips(); renderChords(); renderScene(); renderStrips(); renderFx(); buildKb(); refreshers.forEach(f=>f()); }
 function paintPh(s,barI){
   document.querySelectorAll('.cell.ph,.rc.ph,.slot.ph').forEach(c=>c.classList.remove('ph'));
