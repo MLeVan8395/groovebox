@@ -189,6 +189,9 @@ canvas.cv-env{display:block;width:100%;height:96px;background:#0d0f13;border:1px
 .slider.learnsel{outline:2px solid var(--mx);background:color-mix(in srgb,var(--mx) 10%,transparent)}
 #midimap{margin-top:8px} #midimap button{margin:0 0 0 6px;padding:1px 7px}
 .btn.ub:disabled,#midion:disabled{opacity:.45;cursor:default}
+.ctl{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px}
+.fld{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.fld select{min-width:120px}
 footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);font-size:12px}
 @media (hover:none){.kk,.ck,.kbhint{display:none!important}}
 .danger.armed{background:var(--dr);color:#121419;border-color:var(--dr)}
@@ -249,12 +252,13 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
     <p class="gdesc" id="ghint"></p>
   </div>
   <div class="panel">
-    <div class="row"><span class="lbl">Son</span><span class="seg" id="csound" style="--c:var(--ch)"></span>
-      <span class="lbl">Rythme</span><select id="cpat"></select></div>
-    <div class="row" style="margin-top:8px"><span class="lbl">Accords</span><span class="seg" id="cnb" style="--c:var(--ch)"></span>
-      <span class="lbl">Basse</span><select id="cbass" aria-label="Note de basse sous l'accord"></select>
-      <label class="chk"><input type="checkbox" id="clead"> Enchaînement doux</label>
-      <span class="lbl">Octave</span><span class="seg" id="coct" style="--c:var(--ch)"></span></div>
+    <div class="ctl">
+      <label class="fld"><span class="lbl">Son</span><select id="csound"></select></label>
+      <label class="fld"><span class="lbl">Rythme</span><select id="cpat"></select></label>
+      <label class="fld"><span class="lbl">Accords</span><select id="cnb"></select></label>
+      <label class="fld"><span class="lbl">Basse</span><select id="cbass" aria-label="Note de basse sous l'accord"></select></label>
+      <span class="fld"><span class="lbl">Octave</span><span class="seg" id="coct" style="--c:var(--ch)"></span></span>
+      <label class="chk"><input type="checkbox" id="clead"> Enchaînement doux</label></div>
     <div class="now" style="margin-top:8px"><div class="cstaff" id="cstaff"></div><span class="big" id="cbig">–</span><span><span id="crn" style="font-family:var(--mono)"></span><br><span class="nt" id="cnotes"></span></span></div>
     <div class="padhead"><h3 id="homeTitle">Accords de la tonalité</h3><span class="lbl kbhint">touches 1 à 7</span></div>
     <div class="pads" id="homePads"></div>
@@ -276,11 +280,12 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
 <!-- BASSE -->
 <section class="pane" id="p-bass" style="--c:var(--ba)">
   <div class="panel">
-    <div class="row"><span class="lbl">Motif</span><select id="bpreset"></select>
+    <div class="ctl">
+      <label class="fld"><span class="lbl">Motif</span><select id="bpreset"></select></label>
+      <label class="fld"><span class="lbl">Toucher</span><select id="bedit"></select></label>
+      <label class="fld"><span class="lbl">Durée</span><select id="bdur"></select></label>
       <label class="chk"><input type="checkbox" id="bfollow"> Suivre les accords</label>
-      <span class="lbl">Toucher</span><span class="seg" id="bedit" style="--c:var(--ba)"></span>
-      <span class="lbl">Durée</span><span class="seg" id="bdur" style="--c:var(--ba)"></span>
-      <button class="btn ub" data-undo title="Annuler (Ctrl+Z)">↶ Annuler</button><button class="btn ub" data-redo title="Rétablir (Ctrl+Maj+Z)">↷</button><button class="btn" id="bclear">Vider</button></div>
+      <span class="fld"><button class="btn ub" data-undo title="Annuler (Ctrl+Z)">↶ Annuler</button><button class="btn ub" data-redo title="Rétablir (Ctrl+Maj+Z)">↷</button><button class="btn" id="bclear">Vider</button></span></div>
     <p class="gdesc" id="bhint"></p>
   </div>
   <div class="panel"><h2>Partition <span class="lbl" id="bsCap"></span></h2><div class="score" id="bscore"></div></div>
@@ -301,9 +306,10 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
 <!-- SYNTHÉ -->
 <section class="pane" id="p-synth" style="--c:var(--sy)">
   <div class="panel">
-    <div class="row"><span class="lbl">Forme d'onde</span><span class="seg" id="swave" style="--c:var(--sy)"></span>
+    <div class="ctl">
+      <label class="fld"><span class="lbl">Forme d'onde</span><select id="swave"></select></label>
+      <label class="fld"><span class="lbl">Filtre</span><select id="sftype"></select></label>
       <label class="chk"><input type="checkbox" id="svib"> Vibrato</label></div>
-    <div class="row" style="margin-top:8px"><span class="lbl">Filtre</span><span class="seg" id="sftype" style="--c:var(--sy)"></span></div>
     <canvas class="cv-filt" id="cvF"></canvas>
     <div class="sliders" id="ssl" style="margin-top:6px"></div>
     <div class="envs">
@@ -329,7 +335,7 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
 <section class="pane" id="p-mix" style="--c:var(--mx)">
   <div class="panel" id="midipanel"><h2>Clavier MIDI <span class="lbl" id="midistat"></span></h2>
     <div class="row"><button class="btn" id="midion" style="--c:var(--mx)">Activer le clavier MIDI</button>
-      <span class="lbl">Les touches jouent</span><span class="seg" id="miditarget" style="--c:var(--mx)"></span></div>
+      <label class="fld"><span class="lbl">Les touches jouent</span><select id="miditarget"></select></label></div>
     <div class="row" style="margin-top:8px"><button class="btn" id="midilearn" style="--c:var(--mx)">Apprendre un bouton</button><span class="gdesc" id="midihint" style="margin:0"></span></div>
     <div id="midimap" class="gdesc"></div>
     <details class="help"><summary>Comprendre</summary>
@@ -1084,6 +1090,7 @@ function slider(parent,o){
 }
 const SLIDERS={};
 const F={pct:v=>Math.round(v*100)+' %', s:v=>v<1?Math.round(v*1000)+' ms':v.toFixed(2).replace('.',',')+' s', hz:v=>v>=1000?(v/1000).toFixed(1).replace('.',',')+' kHz':Math.round(v)+' Hz', lfo:v=>v.toFixed(2).replace('.',',')+' Hz', oct:v=>(v>0?'+':'')+v.toFixed(1).replace('.',',')+' oct.', c:v=>(v>0?'+':'')+Math.round(v)+' cents'};
+function dsel(sel,items,get,set){ sel.innerHTML=''; Object.entries(items).forEach(([k,n])=>sel.add(new Option(n,k))); sel.onchange=()=>{ set(sel.value); save(); }; const r=()=>{ sel.value=get(); }; refreshers.push(r); r(); }
 function seg(box,items,get,set,tmp){ box.innerHTML=''; Object.entries(items).forEach(([k,n])=>{ const b=document.createElement('button'); b.textContent=n; b.dataset.k=k;
   b.onclick=()=>{ set(k); [...box.children].forEach(x=>x.classList.toggle('on',x===b)); save(); }; box.appendChild(b); });
   const r=()=>[...box.children].forEach(x=>x.classList.toggle('on',x.dataset.k===get())); if(!tmp) refreshers.push(r); r(); }
@@ -1149,11 +1156,11 @@ function paintDrumScore(){ const el=$('dscore'); if(el) el.innerHTML=engraveDrum
 for(let n=1;n<=16;n++) $('glen').add(new Option(n+(n>1?' mesures':' mesure'),n));
 $('glen').onchange=e=>{ pushUndo(); SC().len=+e.target.value; if(selSlot>=SC().len) selSlot=0; renderGrille(); save(); };
 seg($('csrc'),{grille:'Jouer la grille',live:'Jouer en live'},()=>SONG.chords.src,k=>{ SONG.chords.src=k; liveRef=null; curChordKey=null; renderGrille(); });
-seg($('csound'),Object.fromEntries(Object.entries(CSOUNDS).map(([k,o])=>[k,o.n])),()=>SONG.chords.sound,k=>SONG.chords.sound=k);
+dsel($('csound'),Object.fromEntries(Object.entries(CSOUNDS).map(([k,o])=>[k,o.n])),()=>SONG.chords.sound,k=>SONG.chords.sound=k);
 Object.entries(CPAT).forEach(([k,o])=>$('cpat').add(new Option(o.n,k)));
 $('cpat').onchange=e=>{ pushUndo(); SC().cpat=e.target.value; arpI=0; save(); };
 seg($('coct'),{'m1':'−1','z':'0','p1':'+1','p2':'+2'},()=>({'-1':'m1','0':'z','1':'p1','2':'p2'})[SONG.chords.oct||0],k=>{ SONG.chords.oct={m1:-1,z:0,p1:1,p2:2}[k]; lastVoicing=null; curChordKey=null; });
-seg($('cnb'),{n3:'3 sons',n4:'4 sons',n5:'5 sons'},()=>'n'+SONG.chords.nb,k=>{ SONG.chords.nb=+k.slice(1); curChordKey=null; lastVoicing=null; renderChords(); });
+dsel($('cnb'),{n3:'3 sons',n4:'4 sons',n5:'5 sons'},()=>'n'+SONG.chords.nb,k=>{ SONG.chords.nb=+k.slice(1); curChordKey=null; lastVoicing=null; renderChords(); });
 $('clead').onchange=e=>{ SONG.chords.lead=e.target.checked; save(); };
 seg($('secmode'),{v:'Dominante V7',dim:'Diminuée VII°7',sub:'Substitution tritonique'},()=>SONG.chords.sec,k=>{ SONG.chords.sec=k; renderPads(); });
 $('borrow').onchange=e=>{ SONG.chords.borrow=e.target.value; renderPads(); save(); };
@@ -1203,8 +1210,8 @@ Object.entries(BASS_PRESETS).forEach(([k,o])=>$('bpreset').add(new Option(o.nom,
 $('bpreset').onchange=e=>{ pushUndo(); SC().bass=parseBass(BASS_PRESETS[e.target.value].s); SC().bpre=e.target.value; renderRoll(); save(); };
 $('bfollow').onchange=e=>{ SONG.bass.follow=e.target.checked; renderRoll(); save(); };
 let bedit='note';
-seg($('bedit'),{note:'Note',acc:'Accent',lig:'Liaison'},()=>bedit,k=>{ bedit=k; bhint(); });
-let bdur=1; seg($('bdur'),{d1:'Double croche',d2:'Croche',d3:'Croche pointée',d4:'Noire',d8:'Blanche',d16:'Ronde'},()=>'d'+bdur,k=>{ bdur=+k.slice(1); });
+dsel($('bedit'),{note:'Note',acc:'Accent',lig:'Liaison'},()=>bedit,k=>{ bedit=k; bhint(); });
+let bdur=1; dsel($('bdur'),{d1:'Double croche',d2:'Croche',d3:'Croche pointée',d4:'Noire',d8:'Blanche',d16:'Ronde'},()=>'d'+bdur,k=>{ bdur=+k.slice(1); });
 function bhint(){ $('bhint').innerHTML={note:'Touche une case pour poser une note de la <b>durée</b> choisie, ou glisse vers la droite pour l\'allonger. Retouche une note pour l\'effacer (ou touche sa fin pour la raccourcir). Touche un nom de note à gauche pour l\'écouter.',acc:'Touche une note pour l\'<b>accentuer</b> (plus forte, filtre plus ouvert).',lig:'Touche une note pour la <b>lier</b> à la précédente : même hauteur = note tenue, autre hauteur = glissando.'}[bedit]; }
 $('bclear').onclick=()=>{ pushUndo(); SC().bass=Array(16).fill(null); renderRoll(); save(); };
 seg($('bwave'),{sawtooth:'Dent de scie',square:'Carré',triangle:'Triangle'},()=>SONG.bass.wave,k=>{ SONG.bass.wave=k; bassParams(); });
@@ -1241,8 +1248,8 @@ $('roll').addEventListener('pointermove',e=>{ if(!rollDrag) return; const el=doc
 const rollUp=()=>{ if(rollDrag){ rollDrag=null; save(); } }; window.addEventListener('pointerup',rollUp); window.addEventListener('pointercancel',rollUp);
 
 /* --- synthé --- */
-seg($('swave'),{sine:'Sinus',triangle:'Triangle',sawtooth:'Dent de scie',square:'Carré'},()=>SONG.synth.wave,k=>SONG.synth.wave=k);
-seg($('sftype'),{lowpass:'Passe-bas',highpass:'Passe-haut',bandpass:'Passe-bande'},()=>SONG.synth.ftype,k=>{ SONG.synth.ftype=k; const now=ctx.currentTime;
+dsel($('swave'),{sine:'Sinus',triangle:'Triangle',sawtooth:'Dent de scie',square:'Carré'},()=>SONG.synth.wave,k=>SONG.synth.wave=k);
+dsel($('sftype'),{lowpass:'Passe-bas',highpass:'Passe-haut',bandpass:'Passe-bande'},()=>SONG.synth.ftype,k=>{ SONG.synth.ftype=k; const now=ctx.currentTime;
   svoices.forEach(v=>{ if(v.done) return; v.fl.type=k; v.fl.Q.setTargetAtTime(qFor(k,SONG.synth.fres),now,.02); }); });
 /* courbe de réponse du filtre */
 const vizF=ctx.createBiquadFilter(), NF=200, frq=new Float32Array(NF), mag=new Float32Array(NF), phs=new Float32Array(NF);
@@ -1259,7 +1266,7 @@ function drawFilt(cv){ const f=fitCv(cv); if(!f) return; const {g,w,h}=f, P=SONG
   g.strokeStyle='#fff'; g.lineWidth=1.2; g.beginPath(); g.moveTo(fx(fc),0); g.lineTo(fx(fc),h); g.stroke();
   g.fillStyle='#c792ea'; g.textAlign=fx(fc)>w-70?'right':'left'; g.fillText(F.hz(fc),fx(fc)+(fx(fc)>w-70?-4:4),12); g.textAlign='left'; }
 $('svib').onchange=e=>{ SONG.synth.vib=e.target.checked; synthVibUpdate(); save(); };
-[['ssl','Bruit','noise',0,1,false,F.pct],['ssl','Coupure du filtre','cutoff',60,16000,true,F.hz],['ssl','Résonance','fres',0,1,false,F.pct],['ssl','Quantité d\'enveloppe du filtre','famt',-3,5,false,F.oct],
+[['ssl','Bruit','noise',0,1,false,F.pct],['ssl','Coupure du filtre','cutoff',60,16000,true,F.hz],['ssl','Résonance','fres',0,1,false,F.pct],['ssl','Quantité d\'enveloppe','famt',-3,5,false,F.oct],
  ['sslF','A · Attaque','fa',.001,3,true,F.s],['sslF','D · Déclin','fd',.005,3,true,F.s],['sslF','S · Maintien','fs',0,1,false,F.pct],['sslF','R · Relâchement','fr',.005,4,true,F.s],
  ['sslA','A · Attaque','a',.001,3,true,F.s],['sslA','D · Déclin','d',.005,3,true,F.s],['sslA','S · Maintien','s',0,1,false,F.pct],['sslA','R · Relâchement','r',.005,5,true,F.s]]
   .forEach(([box,label,k,min,max,log,fmt])=>slider($(box),{label,min,max,log,get:()=>SONG.synth[k],set:v=>{ SONG.synth[k]=v; const now=ctx.currentTime;
@@ -1397,7 +1404,7 @@ let lastS=-1;
   requestAnimationFrame(loop);
 })();
 
-applyMix(); updateFX(); bassParams(); synthVibUpdate(); renderAll(); showTab(curTab); bhint();
+applyMix(); updateFX(); bassParams(); synthVibUpdate(); renderAll(); showTab(curTab); bhint(); showChord(null);
 
 
 /* ======================================================================
@@ -1452,7 +1459,7 @@ async function midiEnable(){
 }
 $('midion').onclick=midiEnable;
 $('midichip').onclick=()=>showTab('mix');
-seg($('miditarget'),{synth:'Synthé',bass:'Basse',chords:'Accords',drums:'Batterie'},()=>MIDI.target,k=>{ [...sactive.keys()].forEach(sNoteOff); bassOff(); MIDI.target=k; midiSave(); });
+dsel($('miditarget'),{synth:'Synthé',bass:'Basse',chords:'Accords',drums:'Batterie'},()=>MIDI.target,k=>{ [...sactive.keys()].forEach(sNoteOff); bassOff(); MIDI.target=k; midiSave(); });
 function learnStop(){ MIDI.learn=0; MIDI.learnKey=null; document.querySelectorAll('.slider.learn,.slider.learnsel').forEach(s=>s.classList.remove('learn','learnsel')); $('midilearn').classList.remove('on'); $('midihint').textContent=''; }
 $('midilearn').onclick=()=>{ if(MIDI.learn){ learnStop(); return; } MIDI.learn=1; $('midilearn').classList.add('on'); document.querySelectorAll('.slider').forEach(s=>s.classList.add('learn')); $('midihint').textContent='Touche maintenant un curseur (tu peux changer d\'onglet)…'; };
 document.addEventListener('pointerdown',e=>{ if(MIDI.learn!==1) return; const s=e.target.closest('.slider'); if(!s||!s.dataset.key) return; e.preventDefault(); e.stopPropagation();
