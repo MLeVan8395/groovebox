@@ -81,7 +81,7 @@ details.help b{color:var(--text)}
 .dpad .kk{position:absolute;top:4px;left:7px;font-family:var(--mono);font-size:10px;color:var(--muted);font-weight:400}
 @media (max-width:640px){.dpads{grid-template-columns:repeat(4,1fr)}}
 .seqwrap{overflow-x:auto}
-.seq{display:grid;grid-template-columns:88px repeat(16,minmax(20px,1fr));gap:3px;min-width:420px;user-select:none;-webkit-user-select:none}
+.seq{display:grid;grid-template-columns:var(--lab,88px) repeat(var(--n,16),minmax(20px,1fr));gap:3px;min-width:420px;user-select:none;-webkit-user-select:none}
 .seq .hd{font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center}
 .seq .hd.t{color:var(--text);font-weight:600}
 .seq .nm{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:5px;cursor:pointer}
@@ -166,7 +166,7 @@ details.help b{color:var(--text)}
 .toggle[aria-pressed=true]{border-color:var(--c);background:color-mix(in srgb,var(--c) 25%,#0d0f13)}
 .toggle[aria-pressed=true]::after{transform:translateX(20px);background:var(--c)}
 .fx.off .slider,.fx.off .seg{opacity:.45}
-@media (max-width:640px){ .roll{grid-template-columns:40px repeat(16,minmax(13px,1fr));min-width:0;gap:2px 1px} .roll .rl{font-size:9px;padding-right:3px} .seq{grid-template-columns:62px repeat(16,minmax(15px,1fr));min-width:0;gap:2px} .seq .nm{font-size:10px} .transport{position:static} .tab{min-width:62px;font-size:14px;padding:8px 2px} .fab{display:flex!important} .logo{font-size:16px} }
+@media (max-width:640px){ .roll{grid-template-columns:40px repeat(16,minmax(13px,1fr));min-width:0;gap:2px 1px} .roll .rl{font-size:9px;padding-right:3px} .seq{--lab:62px;grid-template-columns:var(--lab) repeat(var(--n,16),minmax(15px,1fr));min-width:0;gap:2px} .seq .nm{font-size:10px} .transport{position:static} .tab{min-width:62px;font-size:14px;padding:8px 2px} .fab{display:flex!important} .logo{font-size:16px} }
 .fab{display:none;position:fixed;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:30;width:58px;height:58px;border-radius:50%;border:0;background:var(--mx);color:#121419;font-size:22px;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.5);cursor:pointer}
 .fab.on{background:var(--dr)}
 .score{background:#f4f1ea;color:#1b1e26;border-radius:10px;padding:6px 8px;overflow-x:auto}
@@ -217,7 +217,7 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
     <span class="lbl">Scène</span><span class="scenes" id="scenes"></span>
     <select id="style" aria-label="Style de la scène"><option value="">Style de la scène…</option></select>
     <span class="mchips" id="mchips"></span>
-    <button class="mchip" id="midichip" style="--c:var(--mx)" hidden>MIDI</button>
+    <button class="mchip" id="midichip" style="--c:var(--muted)" title="Clavier MIDI">🎹 MIDI</button>
   </div>
   <nav class="tabs" id="tabs"></nav>
 </header>
@@ -226,17 +226,19 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
 <!-- BATTERIE -->
 <section class="pane" id="p-drums" style="--c:var(--dr)">
   <div class="panel">
-    <div class="row"><span class="lbl">Kit</span><select id="kit"></select>
-      <span class="lbl">Rythme</span><select id="dpreset"></select>
+    <div class="ctl"><label class="fld"><span class="lbl">Kit</span><select id="kit"></select></label>
+      <label class="fld"><span class="lbl">Rythme</span><select id="dpreset"></select></label>
+      <label class="fld"><span class="lbl">Débit</span><select id="dres"><option value="16">Doubles croches (1/16)</option><option value="8">Croches (1/8)</option></select></label>
       <div style="flex:1;min-width:160px" id="swingBox"></div>
       <button class="btn ub" data-undo title="Annuler (Ctrl+Z)">↶ Annuler</button><button class="btn ub" data-redo title="Rétablir (Ctrl+Maj+Z)">↷</button><button class="btn" id="dclear">Vider</button></div>
+    <p class="gdesc" id="dhint"></p>
   </div>
   <div class="panel"><div class="dpads" id="dpads"></div></div>
   <div class="panel"><h2>Partition <span class="lbl">portée de percussion</span></h2><div class="score" id="dscore"></div>
     <p class="dlegend">En haut, hampes vers le haut : les mains (charleston, ride, crash, caisse claire, toms). En bas, hampes vers le bas : les pieds (grosse caisse, charleston au pied). Têtes en croix = cymbales ; « o » = charleston ouvert ; croix cerclée = cercle (cross-stick) ; triangle = cloche.</p></div>
   <div class="panel"><div class="seqwrap"><div class="seq" id="seq"></div></div>
     <details class="help"><summary>Comprendre le séquenceur</summary>
-      <p>Chaque ligne est un instrument, chaque case une <b>double croche</b> : 16 cases = une mesure à 4 temps, comptée <b>1 ti ke ta, 2 ti ke ta…</b>. Touche une case une fois pour une note, deux fois pour une note <b>accentuée</b>, trois fois pour l'effacer.</p>
+      <p>Chaque ligne est un instrument. Avec le débit <b>doubles croches (1/16)</b>, chaque case est une double croche : 16 cases = une mesure à 4 temps, comptée <b>1 ti ke ta, 2 ti ke ta…</b>. Avec le débit <b>croches (1/8)</b>, 8 cases comptées <b>1 et 2 et…</b> : plus simple pour commencer. Touche une case une fois pour une note, deux fois pour une note <b>accentuée</b>, trois fois pour l'effacer.</p>
       <p>Le <b>swing</b> retarde les notes entre les temps : à 100 %, des croches binaires deviennent ternaires (shuffle, jazz). Il s'applique à tous les instruments de la Groovebox.</p>
     </details></div>
 </section>
@@ -332,7 +334,7 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
 </section>
 
 <!-- MIXEUR -->
-<section class="pane" id="p-mix" style="--c:var(--mx)">
+<section class="pane" id="p-midi" style="--c:var(--mx)">
   <div class="panel" id="midipanel"><h2>Clavier MIDI <span class="lbl" id="midistat"></span></h2>
     <div class="row"><button class="btn" id="midion" style="--c:var(--mx)">Activer le clavier MIDI</button>
       <label class="fld"><span class="lbl">Les touches jouent</span><select id="miditarget"></select></label></div>
@@ -345,6 +347,10 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
       <li><b>Molette de pitch</b> : la molette du synthé. <b>Molette de modulation</b> : le vibrato du synthé. <b>Pédale de sustain</b> : tient les notes du synthé. <b>Volume</b> (CC7) : le volume général.</li>
       <li><b>Apprendre un bouton</b> : touche ce bouton, puis un curseur de la Groovebox (n'importe lequel, dans n'importe quel onglet), puis tourne un bouton ou un fader de ton clavier : ils sont reliés.</li></ul>
     </details></div>
+</section>
+
+<section class="pane" id="p-mix" style="--c:var(--mx)">
+
   <div class="panel"><div class="strips" id="strips"></div></div>
   <div class="panel" id="fxpanel">
     <h2>Effets en insert : <span id="fxname"></span></h2>
@@ -359,7 +365,7 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
 </section>
 </main>
 <button class="fab" id="fab" aria-label="Lecture / arrêt">▶</button>
-<footer><p>Groovebox · © 2026 Mickael Le Van – tous droits réservés (reproduction et usage commercial interdits) · sons du kit acoustique : <a href="https://github.com/sfzinstruments/virtuosity_drums" style="color:inherit">Virtuosity Drums</a> (Versilian Studios, CC0) · notes en Do, Ré, Mi… ; accords en lettres · aucune donnée collectée.</p></footer>
+<footer><p>Groovebox · © 2026 Mickael Le Van – tous droits réservés (reproduction et usage commercial interdits) · sons du kit acoustique : <a href="https://github.com/sfzinstruments/virtuosity_drums" style="color:inherit">Virtuosity Drums</a> (Versilian Studios, CC0) ; kit rock : <a href="https://github.com/sfzinstruments/SMDrums" style="color:inherit">SM Drums</a> (domaine public) · notes en Do, Ré, Mi… ; accords en lettres · aucune donnée collectée.</p></footer>
 
 <script>
 /* ======================================================================
@@ -387,6 +393,7 @@ const SND = [
 const KITS = {
   acou:{nom:'Acoustique', desc:`De <b>vrais enregistrements</b> d'une batterie de jazz (on dit des <i>échantillons</i>, en anglais <i>samples</i>). Changer la hauteur d'un échantillon, c'est le lire plus vite ou plus lentement : il devient aussi plus court ou plus long. Sons : Virtuosity Drums, Versilian Studios (domaine public).`},
   elec:{nom:'Électronique', desc:`Les boîtes à rythmes des années 80 (comme la célèbre TR-808) : tous les sons sont fabriqués avec des oscillateurs, du bruit et des filtres, comme sur un synthétiseur.`},
+  rock:{nom:'Rock', desc:`Une vraie batterie <b>rock</b> enregistrée (grosse caisse et caisse claire qui claquent, cymbales brillantes).`},
   bit:{nom:'8 bits', desc:`Les sons des consoles de jeux vidéo des années 80 : seulement des ondes carrées, une onde triangle et un bruit très granuleux.`},
 };
 const KDEF = {
@@ -404,6 +411,20 @@ const KDEF = {
     bell:{file:'cloche', dur:.8, decay:.8, dmin:.06, dmax:.8, level:.45, x:1, xl:'Brillance (filtre)', hz:false,},
     ride:{file:'ride', dur:2.5, decay:2.5, dmin:.2, dmax:2.5, level:.85, x:1, xl:'Brillance (filtre)', hz:false,},
     hhp:{file:'charley-pied', dur:.5, decay:.5, dmin:.05, dmax:.5, level:.45, x:1, xl:'Brillance (filtre)', hz:false,},
+  },
+  rock:{
+    kick:{file:'rock/grosse-caisse', dur:1, decay:1, dmin:.08, dmax:1, level:1, x:1, xl:'Brillance (filtre)', hz:false,},
+    snare:{file:'rock/caisse-claire', dur:1.1, decay:1.1, dmin:.06, dmax:1.1, level:.95, x:1, xl:'Brillance (filtre)', hz:false,},
+    rim:{file:'rock/cercle', dur:.5, decay:.5, dmin:.04, dmax:.5, level:.85, x:1, xl:'Brillance (filtre)', hz:false,},
+    clap:{},
+    hhc:{file:'rock/charley-ferme', dur:.5, decay:.5, dmin:.04, dmax:.5, level:.75, x:1, xl:'Brillance (filtre)', hz:false,},
+    hho:{file:'rock/charley-ouvert', dur:1.8, decay:1.8, dmin:.1, dmax:1.8, level:.7, x:1, xl:'Brillance (filtre)', hz:false,},
+    tomh:{file:'rock/tom-aigu', dur:1.5, decay:1.5, dmin:.1, dmax:1.5, level:.85, x:1, xl:'Brillance (filtre)', hz:false,},
+    toml:{file:'rock/tom-basse', dur:1.8, decay:1.8, dmin:.1, dmax:1.8, level:.9, x:1, xl:'Brillance (filtre)', hz:false,},
+    crash:{file:'rock/crash', dur:3.5, decay:3.5, dmin:.3, dmax:3.5, level:.55, x:1, xl:'Brillance (filtre)', hz:false,},
+    bell:{file:'rock/cloche', dur:2.5, decay:2.5, dmin:.06, dmax:2.5, level:.5, x:1, xl:'Brillance (filtre)', hz:false,},
+    ride:{file:'rock/ride', dur:3, decay:3, dmin:.2, dmax:3, level:.6, x:1, xl:'Brillance (filtre)', hz:false,},
+    hhp:{file:'rock/charley-pied', dur:.6, decay:.6, dmin:.05, dmax:.6, level:.55, x:1, xl:'Brillance (filtre)', hz:false,},
   },
   bit:{
     kick:{base:50, decay:.18, dmin:.05, dmax:.6, level:.8, x:.6, xl:'Chute de hauteur',},
@@ -587,7 +608,7 @@ function bhat(c,out,t,p,v,open,rt){ const k=2**(p.tune/12), d=p.decay, L=p.level
   const choke=c.createGain(); choke.connect(out); bnz(c,choke,t,(rt||2.5)*k,L,d,rt?3000:5000); chokeHat(c,choke,t,d,open); return d+.01; }
 function btom(c,out,t,p,v,s){ const f=s.base*2**(p.tune/12), d=p.decay, L=p.level*v*.9;
   const o=osc(c,'triangle',f*(1+2*p.x),t,d); o.frequency.exponentialRampToValueAtTime(f,t+d*.8); o.connect(vca(c,out,t,L,.001,d)); return d+.01; }
-const VOICES = {elec:VOICE, acou:ACOU, bit:BIT};
+const VOICES = {elec:VOICE, acou:ACOU, rock:ACOU, bit:BIT};
 const BUF={};
 const SD=(i,kit=SONG.kit)=>Object.assign({},SND[i],KDEF[kit][SND[i].id]||{});
 const defParams=(i,kit=SONG.kit)=>{ const s=SD(i,kit); return {tune:0, decay:s.decay, level:s.level, x:s.x}; };
@@ -841,9 +862,9 @@ const BASS_PRESETS = {
   vide:{nom:'Vide', s:''},
 };
 const STYLES = {
-  pop:{nom:'Pop', drum:'rock', bass:'pop', cp:'croches'}, rock:{nom:'Rock', drum:'rock', bass:'rock', cp:'croches'},
+  pop:{nom:'Pop', drum:'rock', bass:'pop', cp:'croches', kit:'rock'}, rock:{nom:'Rock', drum:'rock', bass:'rock', cp:'croches', kit:'rock'},
   disco:{nom:'Disco', drum:'disco', bass:'disco', cp:'contre'}, house:{nom:'House', drum:'disco', bass:'house', cp:'contre', sound:'pad'},
-  funk:{nom:'Funk', drum:'funk', bass:'funk', cp:'funk'}, hiphop:{nom:'Hip-hop', drum:'hiphop', bass:'hiphop', cp:'ronde'},
+  funk:{nom:'Funk', drum:'funk', bass:'funk', cp:'funk', kit:'rock'}, hiphop:{nom:'Hip-hop', drum:'hiphop', bass:'hiphop', cp:'ronde'},
   trap:{nom:'Trap', drum:'trap', bass:'hiphop', cp:'ronde'}, shuffle:{nom:'Shuffle blues', drum:'shuffle', bass:'boogie', cp:'charleston'},
   reggae:{nom:'Reggae one drop', drum:'reggae', bass:'reggae', cp:'skank'}, stepper:{nom:'Reggae stepper', drum:'stepper', bass:'reggae', cp:'skank'},
   jazz:{nom:'Jazz swing', drum:'jazz', bass:'walking', cp:'charleston'}, bossa:{nom:'Bossa nova', drum:'bossa', bass:'bossa', cp:'bossa'},
@@ -921,9 +942,9 @@ const updateFX = () => Object.keys(CHN).forEach(k=>CH[k].rack.update(SONG.fx[k])
    ====================================================================== */
 let SP = SND.map((_,i)=>defParams(i,SONG.kit));
 function loadSamples(){
-  SND.forEach((_,i)=>{ const s=SD(i,'acou'); if(!s.file||BUF[s.file]) return; BUF[s.file]='…';
-    fetch('sons/acoustique/'+s.file+'.mp3').then(r=>{ if(!r.ok) throw 0; return r.arrayBuffer(); }).then(ab=>new Promise((ok,ko)=>AC.decodeAudioData(ab,ok,ko)))
-      .then(b=>{ BUF[s.file]=b; }).catch(()=>{ BUF[s.file]=null; }); });
+  ['acou','rock'].forEach(kit=>SND.forEach((_,i)=>{ const s=SD(i,kit); if(!s.file||BUF[s.file]) return; BUF[s.file]='…';
+    fetch('sons/'+(s.file.includes('/')?s.file:'acoustique/'+s.file)+'.mp3').then(r=>{ if(!r.ok) throw 0; return r.arrayBuffer(); }).then(ab=>new Promise((ok,ko)=>AC.decodeAudioData(ab,ok,ko)))
+      .then(b=>{ BUF[s.file]=b; }).catch(()=>{ BUF[s.file]=null; }); }));
 }
 loadSamples();
 function drumHit(i,t,vel){ return VOICES[SONG.kit][SND[i].id](ctx, CH.drums.inp, t, SP[i], vel, SD(i,SONG.kit)); }
@@ -1106,9 +1127,9 @@ let taps=[]; $('tap').onclick=()=>{ const n=performance.now(); taps=taps.filter(
 $('tonic').onchange=e=>{ SONG.tonic=+e.target.value; curChordKey=null; renderChords(); save(); };
 $('mode').onchange=e=>{ SONG.mode=e.target.value; if(SONG.chords.borrow===SONG.mode){ SONG.chords.borrow=SONG.mode==='ionien'?'eolien':'ionien'; } curChordKey=null; renderChords(); save(); };
 $('style').onchange=e=>{ const k=e.target.value; if(!k) return; applyStyle(k); e.target.value=''; };
-function applyStyle(k){ pushUndo(); const st=STYLES[k], dp=PRESETS[st.drum], sc=SC();
+function applyStyle(k){ pushUndo(); const st=STYLES[k], dp=PRESETS[st.drum], sc=SC(); sc.dres=16;
   sc.drums=drumFromPreset(st.drum); sc.bass=parseBass(BASS_PRESETS[st.bass].s); sc.bpre=st.bass; sc.cpat=st.cp;
-  SONG.bpm=dp.bpm; SONG.swing=dp.swing; SONG.res=dp.res; if(dp.kit) SONG.kit=dp.kit; if(st.sound) SONG.chords.sound=st.sound;
+  SONG.bpm=dp.bpm; SONG.swing=dp.swing; SONG.res=dp.res; if(dp.kit) SONG.kit=dp.kit; if(st.kit) SONG.kit=st.kit; if(st.sound) SONG.chords.sound=st.sound;
   SP=SND.map((_,i)=>defParams(i,SONG.kit)); if(dp.snd) Object.entries(dp.snd).forEach(([id,o])=>Object.assign(SP[IDX[id]],o));
   updateFX(); renderAll(); save(); }
 function renderScenes(){ const box=$('scenes'); box.innerHTML='';
@@ -1123,7 +1144,7 @@ function renderMchips(){ const box=$('mchips'); box.innerHTML='';
     b.title='Couper / rétablir'; b.onclick=()=>{ SONG.mix[k].mute=!SONG.mix[k].mute; applyMix(); renderMchips(); renderStrips(); save(); }; box.appendChild(b); }); }
 
 /* --- onglets --- */
-const TABS=[['drums','Batterie','var(--dr)'],['chords','Accords','var(--ch)'],['bass','Basse','var(--ba)'],['synth','Synthé','var(--sy)'],['mix','Mixeur','var(--mx)']];
+const TABS=[['drums','Batterie','var(--dr)'],['chords','Accords','var(--ch)'],['bass','Basse','var(--ba)'],['synth','Synthé','var(--sy)'],['mix','Mixeur','var(--mx)'],['midi','🎹 MIDI','var(--mx)']];
 let curTab='drums'; try{ curTab=localStorage.getItem('groovebox-onglet')||'drums'; }catch(e){}
 TABS.forEach(([k,n,c])=>{ const b=document.createElement('button'); b.className='tab'; b.textContent=n; b.style.setProperty('--c',c); b.dataset.k=k; b.onclick=()=>showTab(k); $('tabs').appendChild(b); });
 function showTab(k){ curTab=k; document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.k===k)); document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id==='p-'+k)); try{ localStorage.setItem('groovebox-onglet',k); }catch(e){} if(k==='bass'){ const rw=document.querySelector('.rollwrap'); rw.scrollTop=rw.scrollHeight; } }
@@ -1133,7 +1154,10 @@ Object.entries(KITS).forEach(([k,o])=>$('kit').add(new Option(o.nom,k)));
 Object.entries(PRESETS).forEach(([k,o])=>$('dpreset').add(new Option(o.nom,k)));
 $('dpreset').insertBefore(new Option('Choisir…',''),$('dpreset').firstChild); $('dpreset').value='';
 $('kit').onchange=e=>{ SONG.kit=e.target.value; SP=SND.map((_,i)=>defParams(i,SONG.kit)); save(); };
-$('dpreset').onchange=e=>{ const k=e.target.value; if(!k) return; pushUndo(); const p=PRESETS[k]; SC().drums=drumFromPreset(k); SONG.swing=p.swing; SONG.res=p.res; if(p.kit){ SONG.kit=p.kit; $('kit').value=p.kit; } SP=SND.map((_,i)=>defParams(i,SONG.kit)); if(p.snd) Object.entries(p.snd).forEach(([id,o])=>Object.assign(SP[IDX[id]],o)); renderSeq(); refreshers.forEach(f=>f()); save(); e.target.value=''; };
+$('dpreset').onchange=e=>{ const k=e.target.value; if(!k) return; pushUndo(); const p=PRESETS[k]; SC().drums=drumFromPreset(k); if(SC().drums.some(r=>r.some((v,i)=>v&&i%2))) SC().dres=16; SONG.swing=p.swing; SONG.res=p.res; if(p.kit){ SONG.kit=p.kit; $('kit').value=p.kit; } SP=SND.map((_,i)=>defParams(i,SONG.kit)); if(p.snd) Object.entries(p.snd).forEach(([id,o])=>Object.assign(SP[IDX[id]],o)); renderSeq(); refreshers.forEach(f=>f()); save(); e.target.value=''; };
+$('dres').onchange=e=>{ const n=+e.target.value, sc=SC(); pushUndo(); let lost=false;
+  if(n===8) sc.drums.forEach(r=>r.forEach((v,i)=>{ if(v&&i%2){ r[i]=0; lost=true; } }));
+  sc.dres=n; renderSeq(); save(); if(lost) $('dhint').textContent='Les doubles croches ont été retirées (↶ Annuler pour revenir en arrière).'; else $('dhint').textContent=''; };
 $('dclear').onclick=()=>{ pushUndo(); SC().drums=SND.map(()=>Array(16).fill(0)); renderSeq(); save(); };
 slider($('swingBox'),{label:'Swing (tous les instruments)',min:0,max:1,get:()=>SONG.swing,set:v=>SONG.swing=v,fmt:F.pct});
 const DPAD=[['hhc','KeyQ','A'],['hho','KeyW','Z'],['ride','KeyE','E'],['crash','KeyR','R'],['bell','KeyT','T'],['rim','KeyY','Y'],['hhp','KeyA','Q'],['kick','KeyS','S'],['snare','KeyD','D'],['clap','KeyF','F'],['tomh','KeyG','G'],['toml','KeyH','H']];
@@ -1143,10 +1167,12 @@ DPAD.forEach(([id,code,lbl])=>{ const i=IDX[id], s=SND[i], b=document.createElem
 function padDrum(i){ audioOn(); drumHit(i,ctx.currentTime+.003,1); const b=dpadEls[i]; if(b){ b.classList.add('hit'); setTimeout(()=>b.classList.remove('hit'),110); } }
 const COUNT=['1','ti','ke','ta','2','ti','ke','ta','3','ti','ke','ta','4','ti','ke','ta'];
 let seqCells=[];
-function renderSeq(){ const g=$('seq'); g.innerHTML=''; seqCells=SND.map(()=>[]);
-  g.appendChild(document.createElement('span')); COUNT.forEach((c,i)=>{ const h=document.createElement('span'); h.className='hd'+(i%4===0?' t':''); h.textContent=c; g.appendChild(h); });
+const COUNT8=['1','et','2','et','3','et','4','et'];
+const dres=()=>SC().dres===8?8:16;
+function renderSeq(){ const g=$('seq'); g.innerHTML=''; seqCells=SND.map(()=>[]); const n=dres(), sk=16/n; g.style.setProperty('--n',n); $('dres').value=String(n);
+  g.appendChild(document.createElement('span')); (n===8?COUNT8:COUNT).forEach((c,i)=>{ const h=document.createElement('span'); h.className='hd'+(i%(n/4)===0?' t':''); h.textContent=c; g.appendChild(h); });
   SND.forEach((s,r)=>{ const nm=document.createElement('span'); nm.className='nm'; nm.style.setProperty('--c',s.col); nm.innerHTML=`<i></i>${s.court}`; nm.onclick=()=>padDrum(r); g.appendChild(nm);
-    for(let k=0;k<16;k++){ const c=document.createElement('button'); c.className='cell'+(Math.floor(k/4)%2?' b4':''); c.style.setProperty('--c',s.col); c.setAttribute('aria-label',s.nom+' case '+(k+1));
+    for(let k=0;k<16;k+=sk){ const c=document.createElement('button'); c.className='cell'+(Math.floor(k/4)%2?' b4':''); c.style.setProperty('--c',s.col); c.setAttribute('aria-label',s.nom+' case '+(k/sk+1));
       c.onclick=()=>{ pushUndo(); const sc=SC(); sc.drums[r][k]=(sc.drums[r][k]+1)%3; paintCell(r,k); if(sc.drums[r][k]&&!playing){ audioOn(); drumHit(r,ctx.currentTime+.003,sc.drums[r][k]===2?1:.62); } save(); };
       g.appendChild(c); seqCells[r][k]=c; paintCell(r,k,true); } }); paintDrumScore(); }
 function paintCell(r,k,noScore){ const v=SC().drums[r][k], c=seqCells[r][k]; c.classList.toggle('v1',v===1); c.classList.toggle('v2',v===2); if(!noScore) paintDrumScore(); }
@@ -1451,14 +1477,14 @@ function midiMessage(e){
 function midiBind(){ if(!MIDI.access) return; const names=[];
   MIDI.access.inputs.forEach(inp=>{ inp.onmidimessage=midiMessage; names.push(inp.name); });
   $('midistat').textContent=names.length?'connecté : '+names.join(', '):'aucun clavier détecté (branche-le, puis attends quelques secondes)';
-  const chip=$('midichip'); chip.hidden=!names.length; chip.textContent='MIDI ● '+(names[0]||'').replace(/\s*MIDI.*$/i,'').slice(0,18); }
+  const chip=$('midichip'); chip.style.setProperty('--c',names.length?'var(--mx)':'var(--muted)'); chip.textContent=names.length?'🎹 '+names[0].replace(/\s*MIDI.*$/i,'').slice(0,20)+' ●':'🎹 MIDI'; }
 async function midiEnable(){
   if(!navigator.requestMIDIAccess){ $('midistat').textContent='ce navigateur ne gère pas le MIDI (iPad, iPhone, Safari) : utilise Chrome ou Edge'; return; }
   try{ MIDI.access=await navigator.requestMIDIAccess(); MIDI.on=true; midiSave(); MIDI.access.onstatechange=midiBind; midiBind(); $('midion').textContent='Clavier MIDI activé'; $('midion').classList.add('on'); }
   catch(e){ $('midistat').textContent='accès au MIDI refusé par le navigateur'; }
 }
 $('midion').onclick=midiEnable;
-$('midichip').onclick=()=>showTab('mix');
+$('midichip').onclick=()=>showTab('midi');
 dsel($('miditarget'),{synth:'Synthé',bass:'Basse',chords:'Accords',drums:'Batterie'},()=>MIDI.target,k=>{ [...sactive.keys()].forEach(sNoteOff); bassOff(); MIDI.target=k; midiSave(); });
 function learnStop(){ MIDI.learn=0; MIDI.learnKey=null; document.querySelectorAll('.slider.learn,.slider.learnsel').forEach(s=>s.classList.remove('learn','learnsel')); $('midilearn').classList.remove('on'); $('midihint').textContent=''; }
 $('midilearn').onclick=()=>{ if(MIDI.learn){ learnStop(); return; } MIDI.learn=1; $('midilearn').classList.add('on'); document.querySelectorAll('.slider').forEach(s=>s.classList.add('learn')); $('midihint').textContent='Touche maintenant un curseur (tu peux changer d\'onglet)…'; };
