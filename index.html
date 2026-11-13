@@ -90,6 +90,7 @@ details.help b{color:var(--text)}
 .cell.b4{background:#272b35}
 .cell.v1{background:color-mix(in srgb,var(--c) 55%,var(--panel2))}
 .cell.v2{background:var(--c)}
+.cell.v3{background:color-mix(in srgb,var(--c) 22%,var(--panel2));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 55%,transparent)}
 .cell.ph{outline:2px solid var(--text);outline-offset:-2px}
 
 /* accords */
@@ -247,7 +248,7 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
     <p class="dlegend">En haut, hampes vers le haut : les mains (charleston, ride, crash, caisse claire, toms). En bas, hampes vers le bas : les pieds (grosse caisse, charleston au pied). Têtes en croix = cymbales ; « o » = charleston ouvert ; croix cerclée = cercle (cross-stick) ; triangle = cloche.</p></div>
   <div class="panel"><div class="seqwrap"><div class="seq" id="seq"></div></div>
     <details class="help"><summary>Comprendre le séquenceur</summary>
-      <p>Chaque ligne est un instrument. Avec le débit <b>doubles croches (1/16)</b>, chaque case est une double croche : 16 cases = une mesure à 4 temps, comptée <b>1 ti ke ta, 2 ti ke ta…</b>. Avec le débit <b>croches (1/8)</b>, 8 cases comptées <b>1 et 2 et…</b> : plus simple pour commencer. Touche une case une fois pour une note, deux fois pour une note <b>accentuée</b>, trois fois pour l'effacer.</p>
+      <p>Chaque ligne est un instrument. Avec le débit <b>doubles croches (1/16)</b>, chaque case est une double croche : 16 cases = une mesure à 4 temps, comptée <b>1 ti ke ta, 2 ti ke ta…</b>. Avec le débit <b>croches (1/8)</b>, 8 cases comptées <b>1 et 2 et…</b> : plus simple pour commencer. Touche une case une fois pour une note, deux fois pour une note <b>accentuée</b>, trois fois pour une <b>note fantôme</b> (très légère, entre parenthèses sur la partition), quatre fois pour l'effacer.</p>
       <p>Le <b>swing</b> retarde les notes entre les temps : à 100 %, des croches binaires deviennent ternaires (shuffle, jazz). Il s'applique à tous les instruments de la Groovebox.</p>
     </details></div>
 </section>
@@ -459,7 +460,7 @@ const PRESETS = {
   disco:{nom:'Disco / house', kit:'elec', bpm:120, swing:0, res:8,
     p:{kick:'X...X...X...X...', snare:'....x.......x...', clap:'....X.......X...', hhc:'x...x...x...x...', hho:'..x...x...x...x.'}},
   funk:{nom:'Funk', kit:'acou', bpm:96, swing:0, res:16,
-    p:{kick:'X.x.......x..x..', snare:'....X..x.x..X..x', hhc:'XxxxXxxxXxxxXxxx'}},
+    p:{kick:'X.x.......x..x..', snare:'....X..g.g..X..g', hhc:'XxxxXxxxXxxxXxxx'}},
   hiphop:{nom:'Hip-hop', kit:'elec', bpm:88, swing:.55, res:16,
     p:{kick:'X......x..X.....', snare:'....X.......X...', hhc:'x.xxx.x.x.xxx.xx'},
     snd:{kick:{decay:.6}}},
@@ -478,10 +479,10 @@ const PRESETS = {
   bossa:{nom:'Bossa nova', kit:'acou', bpm:70, swing:0, res:16,
     p:{kick:'x..xx..xx..xx..x', rim:'X..X..X...X..X..', hhc:'xxxxxxxxxxxxxxxx'}},
   country:{nom:'Country (train beat)', kit:'rock', bpm:112, swing:0, res:16,
-    p:{kick:'X.......X.......', snare:'xxxxXxxxxxxxXxxx', hhp:'....x.......x...'},
-    snd:{snare:{decay:.3}}},
+    p:{kick:'X.......X.......', snare:'ggggXgggggggXggg', hhp:'....x.......x...'},
+    snd:{snare:{decay:.45}}},
   dnb:{nom:'Drum and bass', kit:'rock', bpm:172, swing:0, res:16,
-    p:{kick:'X.........X.....', snare:'....X..x....X..x', hhc:'x.x.x.x.x.x.x.xx'}},
+    p:{kick:'X.........X.....', snare:'....X..g....X..g', hhc:'x.x.x.x.x.x.x.xx'}},
   vide:{nom:'Grille vide', bpm:100, swing:0, res:8, p:{}},
 };
 const NB = new WeakMap();
@@ -805,7 +806,7 @@ function engraveDrums(pat){
   [0,1].forEach(voice=>{
     const up=voice===0, evs=[];
     for(let k=0;k<16;k++){ const heads=[]; let acc=false;
-      ids.forEach((id,r)=>{ const m=DRUM_MAP[id]; if(m&&m.v===voice&&pat[r][k]){ heads.push({p:m.p,h:m.h}); if(pat[r][k]===2) acc=true; } });
+      ids.forEach((id,r)=>{ const m=DRUM_MAP[id]; if(m&&m.v===voice&&pat[r][k]){ heads.push({p:m.p,h:m.h,g:pat[r][k]===3}); if(pat[r][k]===2) acc=true; } });
       if(heads.length) evs.push({k,heads,acc}); }
     if(!evs.length){ if(up) o.push(`<rect x="${X(7.5)-6}" y="${top+SPc}" width="13" height="5.5" fill="${INK}"/>`); return; }
     const pieces=[]; let t=0;
@@ -823,6 +824,7 @@ function engraveDrums(pat){
         else { o.push(`<path d="M${x-4.5} ${y-4.5}L${x+4.5} ${y+4.5}M${x+4.5} ${y-4.5}L${x-4.5} ${y+4.5}" stroke="${INK}" stroke-width="1.8"/>`);
           if(h.h==='cx') o.push(`<circle cx="${x}" cy="${y}" r="7" fill="none" stroke="${INK}" stroke-width="1.3"/>`);
           if(h.h==='xo') o.push(`<circle cx="${x}" cy="${top-14}" r="3.2" fill="none" stroke="${INK}" stroke-width="1.4"/>`); }
+        if(h.g) o.push(`<text x="${x-9.5}" y="${y+4}" text-anchor="middle" font-family="Georgia,serif" font-size="12" fill="${INK}">(</text><text x="${x+9.5}" y="${y+4}" text-anchor="middle" font-family="Georgia,serif" font-size="12" fill="${INK}">)</text>`);
         if(p.d===3) o.push(`<circle cx="${x+11}" cy="${y-((h.p-base)%2===0?3:0)}" r="2" fill="${INK}"/>`); }); });
     // groupes ligaturés
     const groups=[]; let g=[];
@@ -860,7 +862,9 @@ function engraveDrums(pat){
    ====================================================================== */
 const DEF_FX = () => ({sat:{on:false,drive:.4,mix:.8}, phaser:{on:false,rate:.4,depth:.7,fb:.5}, flanger:{on:false,rate:.25,depth:.6,fb:.6},
   chorus:{on:false,rate:.6,depth:.5,mix:.5}, trem:{on:false,rate:5,depth:.6}, delay:{on:false,sync:'c8d',time:.35,fb:.35,mix:.3}});
-const drumFromPreset = k => { const p=PRESETS[k].p; return SND.map(s=>{ const str=p[s.id]||''; return Array.from({length:16},(_,i)=>str[i]==='X'?2:str[i]==='x'?1:0); }); };
+// toucher : 1 = note, 2 = accent, 3 = note fantôme (très légère)
+const DVEL=[0,.62,1,.16];
+const drumFromPreset = k => { const p=PRESETS[k].p; return SND.map(s=>{ const str=p[s.id]||''; return Array.from({length:16},(_,i)=>str[i]==='X'?2:str[i]==='x'?1:str[i]==='g'?3:0); }); };
 function parseBass(str){ if(!str) return Array(16).fill(null); return str.split(' ').map(tok=>{ if(tok==='.') return null; const l=tok.startsWith('~'); const a=tok.endsWith('>'); return {n:parseInt(tok.replace(/[~>]/g,'')),a,l}; }); }
 const BASS_PRESETS = {
   pop:{nom:'Pop : fondamentale en croches', s:'0 ~0 0 ~0 0 ~0 0 ~0 0 ~0 0 ~0 0 ~0 0 ~0'},
@@ -1106,7 +1110,7 @@ function bassChordAt(barI,s=0){ const sc=SC(); if(SONG.chords.src==='live') retu
 function schedStep(s,barI,t){
   const sc=SC(), sd=sdur();
   // batterie
-  for(let r=0;r<SND.length;r++){ const v=sc.drums[r][s]; if(v) drumHit(r,t,v===2?1:.62); }
+  for(let r=0;r<SND.length;r++){ const v=sc.drums[r][s]; if(v) drumHit(r,t,DVEL[v]); }
   // accords
   const ref=chordRefAt(barI,s), ch=resolve(ref);
   if(ch){ if(ch.key!==curChordKey){ curChordKey=ch.key; curNotes=voicing(ch.pcs); lastVoicing=curNotes; } const spl=SONG.chords.src==='grille'&&SPL(sc)[barI%sc.len];
@@ -1214,9 +1218,9 @@ function renderSeq(){ const g=$('seq'); g.innerHTML=''; seqCells=SND.map(()=>[])
   g.appendChild(document.createElement('span')); (n===8?COUNT8:COUNT).forEach((c,i)=>{ const h=document.createElement('span'); h.className='hd'+(i%(n/4)===0?' t':''); h.textContent=c; g.appendChild(h); });
   SND.forEach((s,r)=>{ const nm=document.createElement('span'); nm.className='nm'; nm.style.setProperty('--c',s.col); nm.innerHTML=`<i></i>${s.court}`; nm.onclick=()=>padDrum(r); g.appendChild(nm);
     for(let k=0;k<16;k+=sk){ const c=document.createElement('button'); c.className='cell'+(Math.floor(k/4)%2?' b4':''); c.style.setProperty('--c',s.col); c.setAttribute('aria-label',s.nom+' case '+(k/sk+1));
-      c.onclick=()=>{ pushUndo(); const sc=SC(); sc.drums[r][k]=(sc.drums[r][k]+1)%3; paintCell(r,k); if(sc.drums[r][k]&&!playing){ audioOn(); drumHit(r,ctx.currentTime+.003,sc.drums[r][k]===2?1:.62); } save(); };
+      c.onclick=()=>{ pushUndo(); const sc=SC(); sc.drums[r][k]=(sc.drums[r][k]+1)%4; paintCell(r,k); if(sc.drums[r][k]&&!playing){ audioOn(); drumHit(r,ctx.currentTime+.003,DVEL[sc.drums[r][k]]); } save(); };
       g.appendChild(c); seqCells[r][k]=c; paintCell(r,k,true); } }); paintDrumScore(); }
-function paintCell(r,k,noScore){ const v=SC().drums[r][k], c=seqCells[r][k]; c.classList.toggle('v1',v===1); c.classList.toggle('v2',v===2); if(!noScore) paintDrumScore(); }
+function paintCell(r,k,noScore){ const v=SC().drums[r][k], c=seqCells[r][k]; c.classList.toggle('v1',v===1); c.classList.toggle('v2',v===2); c.classList.toggle('v3',v===3); if(!noScore) paintDrumScore(); }
 function paintDrumScore(){ const el=$('dscore'); if(el) el.innerHTML=engraveDrums(SC().drums); }
 
 /* --- accords --- */
