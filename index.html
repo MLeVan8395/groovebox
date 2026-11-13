@@ -302,7 +302,8 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
   <div class="panel"><h2>Partition <span class="lbl" id="bsCap"></span></h2><div class="score" id="bscore"></div></div>
   <div class="panel"><div class="rollwrap"><div class="roll" id="roll"></div></div></div>
   <div class="panel">
-    <h2>Son de la basse <span class="seg" id="bwave" style="--c:var(--ba)"></span></h2>
+    <h2>Son de la basse <select id="bsound" aria-label="Son de la basse"></select> <span class="seg" id="bwave" style="--c:var(--ba)"></span></h2>
+    <p class="gdesc" id="bsndhint"></p>
     <div class="sliders" id="bsl"></div>
     <details class="help"><summary>Comprendre</summary>
       <p>Le <b>piano roll</b> : les hauteurs de bas en haut, le temps de gauche à droite (16 doubles croches = une mesure). La basse est <b>monophonique</b> : une seule note à la fois.</p>
@@ -374,7 +375,7 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
 </section>
 </main>
 <button class="fab" id="fab" aria-label="Lecture / arrêt">▶</button>
-<footer><p>Groovebox · © 2026 Mickael Le Van – tous droits réservés (reproduction et usage commercial interdits) · sons du kit acoustique : <a href="https://github.com/sfzinstruments/virtuosity_drums" style="color:inherit">Virtuosity Drums</a> (Versilian Studios, CC0) ; kit rock : <a href="https://github.com/sfzinstruments/SMDrums" style="color:inherit">SM Drums</a> (domaine public) · notes en Do, Ré, Mi… ; accords en lettres · aucune donnée collectée.</p></footer>
+<footer><p>Groovebox · © 2026 Mickael Le Van – tous droits réservés (reproduction et usage commercial interdits) · sons du kit acoustique : <a href="https://github.com/sfzinstruments/virtuosity_drums" style="color:inherit">Virtuosity Drums</a> (Versilian Studios, CC0) ; kit rock : <a href="https://github.com/sfzinstruments/SMDrums" style="color:inherit">SM Drums</a> (domaine public) ; contrebasse : <a href="https://github.com/sgossner/VSCO-2-CE" style="color:inherit">VSCO 2 CE</a> (CC0) ; basse électrique : <a href="https://www.karoryfer.com/karoryfer-samples" style="color:inherit">Karoryfer Samples</a> via tonejs-instruments (CC BY 3.0) · notes en Do, Ré, Mi… ; accords en lettres · aucune donnée collectée.</p></footer>
 
 <script>
 /* ======================================================================
@@ -877,18 +878,18 @@ const BASS_PRESETS = {
   vide:{nom:'Vide', s:''},
 };
 const STYLES = {
-  pop:{nom:'Pop', drum:'rock', bass:'pop', cp:'croches', kit:'rock'}, rock:{nom:'Rock', drum:'rock', bass:'rock', cp:'croches', kit:'rock'},
+  pop:{nom:'Pop', drum:'rock', bass:'pop', cp:'croches', kit:'rock', bs:'eb'}, rock:{nom:'Rock', drum:'rock', bass:'rock', cp:'croches', kit:'rock', bs:'eb'},
   disco:{nom:'Disco', drum:'disco', bass:'disco', cp:'contre'}, house:{nom:'House', drum:'disco', bass:'house', cp:'contre', sound:'pad'},
-  funk:{nom:'Funk', drum:'funk', bass:'funk', cp:'funk', kit:'rock'}, hiphop:{nom:'Hip-hop', drum:'hiphop', bass:'hiphop', cp:'ronde'},
-  trap:{nom:'Trap', drum:'trap', bass:'hiphop', cp:'ronde'}, shuffle:{nom:'Shuffle blues', drum:'shuffle', bass:'boogie', cp:'charleston'},
-  reggae:{nom:'Reggae one drop', drum:'reggae', bass:'reggae', cp:'skank'}, stepper:{nom:'Reggae stepper', drum:'stepper', bass:'reggae', cp:'skank'},
-  jazz:{nom:'Jazz swing', drum:'jazz', bass:'walking', cp:'charleston'}, bossa:{nom:'Bossa nova', drum:'bossa', bass:'bossa', cp:'bossa'},
-  country:{nom:'Country', drum:'country', bass:'country', cp:'country', kit:'rock'}, dnb:{nom:'Drum and bass', drum:'dnb', bass:'dnb', cp:'ronde', kit:'rock', sound:'pad'},
+  funk:{nom:'Funk', drum:'funk', bass:'funk', cp:'funk', kit:'rock', bs:'eb'}, hiphop:{nom:'Hip-hop', drum:'hiphop', bass:'hiphop', cp:'ronde'},
+  trap:{nom:'Trap', drum:'trap', bass:'hiphop', cp:'ronde'}, shuffle:{nom:'Shuffle blues', drum:'shuffle', bass:'boogie', cp:'charleston', bs:'eb'},
+  reggae:{nom:'Reggae one drop', drum:'reggae', bass:'reggae', cp:'skank', bs:'eb'}, stepper:{nom:'Reggae stepper', drum:'stepper', bass:'reggae', cp:'skank', bs:'eb'},
+  jazz:{nom:'Jazz swing', drum:'jazz', bass:'walking', cp:'charleston', bs:'cb'}, bossa:{nom:'Bossa nova', drum:'bossa', bass:'bossa', cp:'bossa', bs:'cb'},
+  country:{nom:'Country', drum:'country', bass:'country', cp:'country', kit:'rock', bs:'eb'}, dnb:{nom:'Drum and bass', drum:'dnb', bass:'dnb', cp:'ronde', kit:'rock', sound:'pad'},
 };
 const newScene = () => ({drums:drumFromPreset('rock'), cpat:'croches', len:4, bars:[{b:null,d:0,n:3},{b:null,d:4,n:3},{b:null,d:5,n:3},{b:null,d:3,n:3}].concat(Array(12).fill(null)), bass:parseBass(BASS_PRESETS.rock.s), bpre:'rock'});
 const DEF_SONG = () => ({v:1, bpm:100, swing:0, res:8, tonic:0, mode:'ionien', kit:'acou', cur:0,
   chords:{sound:'ep', nb:3, bn:'', lead:true, borrow:'eolien', src:'grille', sec:'v', oct:0},
-  bass:{wave:'sawtooth', cutoff:350, res:.45, env:.55, decay:.22, glide:.08, sub:.35, follow:true},
+  bass:{sound:'synth', wave:'sawtooth', cutoff:350, res:.45, env:.55, decay:.22, glide:.08, sub:.35, follow:true},
   synth:{wave:'sawtooth', detune:0, noise:0, ftype:'lowpass', cutoff:2400, fres:.15, famt:1.5, fa:.01, fd:.4, fs:.4, fr:.4, a:.01, d:.3, s:.7, r:.4, vib:false, bend:2},
   mix:{drums:{vol:.85,mute:false,solo:false,rev:.08}, chords:{vol:.6,mute:false,solo:false,rev:.3}, bass:{vol:.8,mute:false,solo:false,rev:0}, synth:{vol:.65,mute:false,solo:false,rev:.25}, master:.85},
   fx:{drums:DEF_FX(), chords:DEF_FX(), bass:DEF_FX(), synth:DEF_FX()},
@@ -1025,7 +1026,21 @@ function voicing(pcs){
 const B={o:ctx.createOscillator(), sub:ctx.createOscillator(), sg:G(SONG.bass.sub), f:ctx.createBiquadFilter(), v:G(0), last:0, held:false};
 B.o.type=SONG.bass.wave; B.sub.type='square'; B.f.type='lowpass';
 B.o.connect(B.f); B.sub.connect(B.sg).connect(B.f); B.f.connect(B.v).connect(CH.bass.inp); B.o.start(); B.sub.start();
+// Basses enregistrées (mêmes sons que la Boîte à outils basse) : on prend l'échantillon le plus proche et on le transpose.
+const BSAMP={eb:{dir:'basse-electrique',notes:[28,31,34,37,40,43,46,49,52],gain:.95,buf:{}}, cb:{dir:'contrebasse',notes:[28,30,31,34,36,38,40,42,44,45,49,52,56],gain:1.15,buf:{}}};
+let BV=null; // note enregistrée en cours (la basse reste monophonique)
+function loadBassSamples(k){ const S=BSAMP[k]; if(!S||S.loading) return; S.loading=true;
+  S.notes.forEach(n=>fetch('sons/'+S.dir+'/'+n+'.mp3').then(r=>{ if(!r.ok) throw 0; return r.arrayBuffer(); }).then(a=>ctx.decodeAudioData(a)).then(b=>{ S.buf[n]=b; }).catch(()=>{})); }
+function bvStop(t){ if(!BV) return; const v=BV; BV=null; try{ v.g.gain.cancelScheduledValues(t); v.g.gain.setTargetAtTime(0,t,.015); v.src.stop(t+.2); }catch(e){} }
+function sampleBass(midi,t,acc,legato,dur,closeGate){ const S=BSAMP[SONG.bass.sound], ks=Object.keys(S.buf).map(Number); if(!ks.length) return false;
+  const k=ks.reduce((a,b)=>Math.abs(b-midi)<Math.abs(a-midi)?b:a); if(Math.abs(k-midi)>5) return false;
+  if(legato&&BV){ const r=Math.pow(2,(midi-BV.k)/12); BV.src.playbackRate.cancelScheduledValues(t); BV.src.playbackRate.setValueAtTime(BV.r,t); BV.src.playbackRate.linearRampToValueAtTime(r,t+Math.max(.02,SONG.bass.glide)); BV.r=r; }
+  else { bvStop(t); const src=ctx.createBufferSource(), g=ctx.createGain(), r=Math.pow(2,(midi-k)/12); src.buffer=S.buf[k]; src.playbackRate.setValueAtTime(r,t);
+    const L=S.gain*(acc?1.25:.9); g.gain.setValueAtTime(L,t); src.connect(g).connect(CH.bass.inp); src.start(t); src.stop(t+src.buffer.duration/r+.1); BV={src,g,k,r}; }
+  if(closeGate&&BV){ BV.g.gain.setTargetAtTime(0,t+dur,.03); }
+  return true; }
 function bassNote(midi,t,acc,legato,dur,closeGate){
+  if(SONG.bass.sound!=='synth'&&BSAMP[SONG.bass.sound]){ loadBassSamples(SONG.bass.sound); if(sampleBass(midi,t,acc,legato,dur,closeGate)) return; }
   const P=SONG.bass, fr=mtof(midi);
   if(legato){ if(fr!==B.last){ [[B.o,fr],[B.sub,fr/2]].forEach(([o,f])=>{ o.frequency.cancelScheduledValues(t); o.frequency.setValueAtTime(o===B.o?B.last:B.last/2,t); o.frequency.exponentialRampToValueAtTime(f,t+P.glide); }); } }
   else {
@@ -1038,7 +1053,7 @@ function bassNote(midi,t,acc,legato,dur,closeGate){
   if(closeGate) B.v.gain.setTargetAtTime(0,t+dur,.012);
 }
 function bassParams(){ const P=SONG.bass, now=ctx.currentTime; B.o.type=P.wave; B.f.Q.setTargetAtTime(P.res*22,now,.02); B.sg.gain.setTargetAtTime(P.sub,now,.02); B.f.frequency.setTargetAtTime(P.cutoff,now,.05); }
-function bassOff(){ B.v.gain.cancelScheduledValues(ctx.currentTime); B.v.gain.setTargetAtTime(0,ctx.currentTime,.02); }
+function bassOff(){ bvStop(ctx.currentTime); B.v.gain.cancelScheduledValues(ctx.currentTime); B.v.gain.setTargetAtTime(0,ctx.currentTime,.02); }
 // transposition « suivre les accords » : ligne écrite sur Do (Do1 = 36)
 function mapBass(n,ch){
   if(!SONG.bass.follow||!ch) return 36+n;
@@ -1154,7 +1169,7 @@ $('mode').onchange=e=>{ SONG.mode=e.target.value; if(SONG.chords.borrow===SONG.m
 $('style').onchange=e=>{ const k=e.target.value; if(!k) return; applyStyle(k); e.target.value=''; };
 function applyStyle(k){ pushUndo(); const st=STYLES[k], dp=PRESETS[st.drum], sc=SC(); sc.dres=16;
   sc.drums=drumFromPreset(st.drum); sc.bass=parseBass(BASS_PRESETS[st.bass].s); sc.bpre=st.bass; sc.cpat=st.cp;
-  SONG.bpm=dp.bpm; SONG.swing=dp.swing; SONG.res=dp.res; if(dp.kit) SONG.kit=dp.kit; if(st.kit) SONG.kit=st.kit; if(st.sound) SONG.chords.sound=st.sound;
+  SONG.bpm=dp.bpm; SONG.swing=dp.swing; SONG.res=dp.res; if(dp.kit) SONG.kit=dp.kit; if(st.kit) SONG.kit=st.kit; if(st.sound) SONG.chords.sound=st.sound; SONG.bass.sound=st.bs||'synth';
   SP=SND.map((_,i)=>defParams(i,SONG.kit)); if(dp.snd) Object.entries(dp.snd).forEach(([id,o])=>Object.assign(SP[IDX[id]],o));
   updateFX(); renderAll(); save(); }
 function renderScenes(){ const box=$('scenes'); box.innerHTML='';
@@ -1276,6 +1291,11 @@ let bdur=1; dsel($('bdur'),{d1:'Double croche',d2:'Croche',d3:'Croche pointée',
 function bhint(){ $('bhint').innerHTML={note:'Touche une case pour poser une note de la <b>durée</b> choisie, ou glisse vers la droite pour l\'allonger. Retouche une note pour l\'effacer (ou touche sa fin pour la raccourcir). Touche un nom de note à gauche pour l\'écouter.',acc:'Touche une note pour l\'<b>accentuer</b> (plus forte, filtre plus ouvert).',lig:'Touche une note pour la <b>lier</b> à la précédente : même hauteur = note tenue, autre hauteur = glissando.'}[bedit]; }
 $('bclear').onclick=()=>{ pushUndo(); SC().bass=Array(16).fill(null); renderRoll(); save(); };
 seg($('bwave'),{sawtooth:'Dent de scie',square:'Carré',triangle:'Triangle'},()=>SONG.bass.wave,k=>{ SONG.bass.wave=k; bassParams(); });
+function bsoundUI(){ const syn=SONG.bass.sound==='synth'; $('bwave').style.display=syn?'':'none'; $('bsl').style.display=syn?'':'none';
+  $('bsndhint').innerHTML=syn?'Basse de <b>synthé</b> : règle la forme d\'onde et le filtre ci-dessous.':SONG.bass.sound==='cb'?'<b>Contrebasse</b> jouée en pizzicato (cordes pincées) : le son du jazz, de la bossa et du blues acoustique.':'<b>Basse électrique</b> jouée aux doigts : le son du rock, de la pop, du funk et du reggae.';
+  if(!syn) loadBassSamples(SONG.bass.sound); }
+dsel($('bsound'),{synth:'Synthé',eb:'Basse électrique',cb:'Contrebasse'},()=>SONG.bass.sound||'synth',k=>{ bvStop(ctx.currentTime); SONG.bass.sound=k; bsoundUI(); });
+refreshers.push(bsoundUI);
 [['Coupure du filtre','cutoff',60,4000,true,F.hz],['Résonance','res',0,1,false,F.pct],['Enveloppe du filtre','env',0,1,false,F.pct],['Déclin du filtre','decay',.03,1.5,true,F.s],['Glissando (durée)','glide',.01,.4,true,F.s],['Sous-oscillateur (octave grave)','sub',0,1,false,F.pct]]
   .forEach(([label,k,min,max,log,fmt])=>slider($('bsl'),{label,min,max,log,get:()=>SONG.bass[k],set:v=>{ SONG.bass[k]=v; bassParams(); },fmt}));
 const ROLL_HI=60, ROLL_LO=33; let rollCells={};

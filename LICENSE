@@ -15,3 +15,5 @@ Les éléments suivants ne sont pas couverts par la mention ci-dessus et restent
 - Polices Space Grotesk et JetBrains Mono : licence SIL OFL.
 - Sons du kit acoustique (dossier `sons/acoustique/`) : « Virtuosity Drums », Versilian Studios, licence CC0 1.0 (domaine public), voir `sons/acoustique/LISEZ-MOI.txt`.
 - Sons du kit rock (dossier `sons/rock/`) : « SM Drums », Scott McLean, Tod Stillwell, Suleiman Ali, domaine public, voir `sons/rock/LISEZ-MOI.txt`.
+- Basse électrique (dossier `sons/basse-electrique/`) : Karoryfer Samples via tonejs-instruments (Nicholaus Brosowsky), licence CC BY 3.0, voir `sons/basse-electrique/LISEZMOI.md`.
+- Contrebasse (dossier `sons/contrebasse/`) : VSCO 2 Community Edition (Versilian Studios), domaine public (CC0), voir `sons/contrebasse/LISEZMOI.md`.
