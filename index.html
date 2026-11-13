@@ -476,6 +476,10 @@ const PRESETS = {
     snd:{kick:{level:.35}}},
   bossa:{nom:'Bossa nova', kit:'acou', bpm:70, swing:0, res:16,
     p:{kick:'x..xx..xx..xx..x', rim:'X..X..X...X..X..', hhc:'xxxxxxxxxxxxxxxx'}},
+  country:{nom:'Country (two-step)', kit:'rock', bpm:112, swing:0, res:8,
+    p:{kick:'X.......X.......', snare:'....X.......X...', hhc:'x.x.x.x.x.x.x.x.', hhp:'....x.......x...'}},
+  dnb:{nom:'Drum and bass', kit:'rock', bpm:172, swing:0, res:16,
+    p:{kick:'X.........X.....', snare:'....X..x....X..x', hhc:'x.x.x.x.x.x.x.xx'}},
   vide:{nom:'Grille vide', bpm:100, swing:0, res:8, p:{}},
 };
 const NB = new WeakMap();
@@ -868,6 +872,8 @@ const BASS_PRESETS = {
   house:{nom:'House : contretemps', s:'. . 0 ~0 . . 0 ~0 . . 0 ~0 . . 0 ~0'},
   bossa:{nom:'Bossa nova : fondamentale et quinte', s:'0 ~0 ~0 ~0 . . 7 ~7 0 ~0 ~0 ~0 . . 7 ~7'},
   glisse:{nom:'Glissandos (acid)', s:'0> . 12 ~0 . 0 ~7 . 0> . ~12 . 10 ~7 . 3'},
+  country:{nom:'Country : fondamentale et quinte (boom-chick)', s:'0> . . . 7 . . . 0> . . . 7 . 4 ~4'},
+  dnb:{nom:'Drum and bass : sub-basse longue', s:'0> ~0 ~0 ~0 ~0 ~0 . . . . 0> ~0 ~0 ~0 12 ~12'},
   vide:{nom:'Vide', s:''},
 };
 const STYLES = {
@@ -877,6 +883,7 @@ const STYLES = {
   trap:{nom:'Trap', drum:'trap', bass:'hiphop', cp:'ronde'}, shuffle:{nom:'Shuffle blues', drum:'shuffle', bass:'boogie', cp:'charleston'},
   reggae:{nom:'Reggae one drop', drum:'reggae', bass:'reggae', cp:'skank'}, stepper:{nom:'Reggae stepper', drum:'stepper', bass:'reggae', cp:'skank'},
   jazz:{nom:'Jazz swing', drum:'jazz', bass:'walking', cp:'charleston'}, bossa:{nom:'Bossa nova', drum:'bossa', bass:'bossa', cp:'bossa'},
+  country:{nom:'Country', drum:'country', bass:'country', cp:'country', kit:'rock'}, dnb:{nom:'Drum and bass', drum:'dnb', bass:'dnb', cp:'ronde', kit:'rock', sound:'pad'},
 };
 const newScene = () => ({drums:drumFromPreset('rock'), cpat:'croches', len:4, bars:[{b:null,d:0,n:3},{b:null,d:4,n:3},{b:null,d:5,n:3},{b:null,d:3,n:3}].concat(Array(12).fill(null)), bass:parseBass(BASS_PRESETS.rock.s), bpre:'rock'});
 const DEF_SONG = () => ({v:1, bpm:100, swing:0, res:8, tonic:0, mode:'ionien', kit:'acou', cur:0,
@@ -993,6 +1000,7 @@ const CPAT = {
   charleston:{n:'Charleston', f:(s,t,sd,N)=>{ if(s===0) chit(N,t,sd*5); if(s===6) chit(N,t,sd*1.7); }},
   skank:{n:'Reggae (temps 2 et 4)', f:(s,t,sd,N)=>{ if(s===4||s===12) chit(N,t,sd*.8); }},
   funk:{n:'Funk (coups courts)', f:(s,t,sd,N)=>{ if([0,3,6,10,14].includes(s)) chit(N,t,sd*.6,s?.8:1); }},
+  country:{n:'Country (« chick » sur 2 et 4)', f:(s,t,sd,N)=>{ if(s===4||s===12) chit(N,t,sd*1.6); if(s===14) chit(N,t,sd*.9,.7); }},
   bossa:{n:'Bossa nova', f:(s,t,sd,N)=>{ if([0,3,6,10,13].includes(s)) chit(N,t,sd*1.5); }},
   arp:{n:'Arpège montant', f:(s,t,sd,N)=>{ if(s%2===0){ chit([N[arpI%N.length]],t,sd*1.8); arpI++; } }},
   arp2:{n:'Arpège montant-descendant', f:(s,t,sd,N)=>{ if(s%2===0){ const q=N.concat(N.slice(1,-1).reverse()); chit([q[arpI%q.length]],t,sd*1.8); arpI++; } }},
