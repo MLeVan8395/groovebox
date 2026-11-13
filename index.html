@@ -103,6 +103,15 @@ details.help b{color:var(--text)}
 .slot.bor .rn{color:var(--bor)}
 .slot.sel{box-shadow:0 0 0 2px var(--mx) inset}
 .slot.ph{background:color-mix(in srgb,var(--ch) 30%,var(--panel2))}
+.slot.split{flex-direction:row;padding:0;gap:0;align-items:stretch}
+.slot .h{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;padding:12px 1px 2px;border-radius:9px}
+.slot .h+.h{border-left:1px dashed var(--line)}
+.slot .h .cn{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.slot .h .rn{font-size:9px}
+.slot .h.bor .rn{color:var(--bor)}
+.slot .h.sel{box-shadow:0 0 0 2px var(--mx) inset}
+.slot .h.ph{background:color-mix(in srgb,var(--ch) 30%,var(--panel2))}
+.slot.split.ph{background:var(--panel2)}
 .slot.off{opacity:.25}
 .pads{display:grid;grid-template-columns:repeat(7,1fr);gap:7px}
 @media (max-width:640px){.pads{grid-template-columns:repeat(4,1fr)}}
@@ -249,7 +258,7 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
     <h2>Grille de la scène <select id="glen" aria-label="Nombre de mesures"></select>
       <span class="seg" id="csrc" style="--c:var(--ch)"></span>
       <button class="btn" id="gwrite" style="--c:var(--mx)">✎ Écrire</button>
-      <button class="btn" id="gdel">Effacer la case</button><button class="btn" id="gclear">Vider la grille</button><button class="btn ub" data-undo title="Annuler (Ctrl+Z)">↶ Annuler</button><button class="btn ub" data-redo title="Rétablir (Ctrl+Maj+Z)">↷</button></h2>
+      <button class="btn" id="gsplit" title="Deux accords dans la mesure (un par demi-mesure)">½ 2 accords</button><button class="btn" id="gdel">Effacer la case</button><button class="btn" id="gclear">Vider la grille</button><button class="btn ub" data-undo title="Annuler (Ctrl+Z)">↶ Annuler</button><button class="btn ub" data-redo title="Rétablir (Ctrl+Maj+Z)">↷</button></h2>
     <div class="grille" id="grille"></div>
     <p class="gdesc" id="ghint"></p>
   </div>
@@ -1063,19 +1072,27 @@ let playing=false, step=0, bar=0, nextT=0, timer=null, queued=null, liveRef=null
 const vq=[];
 const sdur=()=>60/SONG.bpm/4;
 function swingOff(s){ const sd=sdur(); if(SONG.res===8) return s%4===2?SONG.swing*sd*2/3:0; return s%2===1?SONG.swing*sd/3:0; }
-function chordRefAt(barI){ const sc=SC(); if(SONG.chords.src==='live') return liveRef; return sc.bars[barI%sc.len]; }
-function bassChordAt(barI){ const sc=SC(); if(SONG.chords.src==='live') return resolve(liveRef||{b:null,d:0});
-  for(let k=0;k<sc.len;k++){ const r=sc.bars[((barI-k)%sc.len+sc.len)%sc.len]; if(r) return resolve(r); } return resolve({b:null,d:0}); }
+const SPL=sc=>sc.split||(sc.split=Array(16).fill(false)), B2=sc=>sc.bars2||(sc.bars2=Array(16).fill(null));
+// demi-mesure h (0 = temps 1-2, 1 = temps 3-4) : 2e accord seulement si la mesure est coupée en deux
+const slotRef=(sc,i,h)=>h&&SPL(sc)[i]?B2(sc)[i]:sc.bars[i];
+function chordRefAt(barI,s=0){ const sc=SC(); if(SONG.chords.src==='live') return liveRef; const i=barI%sc.len, h=s>=8?1:0; const r=slotRef(sc,i,h); return r||(h&&SPL(sc)[i]?sc.bars[i]:r); }
+function bassChordAt(barI,s=0){ const sc=SC(); if(SONG.chords.src==='live') return resolve(liveRef||{b:null,d:0});
+  const L=sc.len*2, pos=(barI%sc.len)*2+(s>=8?1:0);
+  for(let k=0;k<L;k++){ const q=((pos-k)%L+L)%L, r=slotRef(sc,q>>1,q&1); if(r) return resolve(r); } return resolve({b:null,d:0}); }
 function schedStep(s,barI,t){
   const sc=SC(), sd=sdur();
   // batterie
   for(let r=0;r<SND.length;r++){ const v=sc.drums[r][s]; if(v) drumHit(r,t,v===2?1:.62); }
   // accords
-  const ref=chordRefAt(barI), ch=resolve(ref);
-  if(ch){ if(ch.key!==curChordKey){ curChordKey=ch.key; curNotes=voicing(ch.pcs); lastVoicing=curNotes; } CPAT[sc.cpat].f(s,t,sd,curNotes); }
+  const ref=chordRefAt(barI,s), ch=resolve(ref);
+  if(ch){ if(ch.key!==curChordKey){ curChordKey=ch.key; curNotes=voicing(ch.pcs); lastVoicing=curNotes; } const spl=SONG.chords.src==='grille'&&SPL(sc)[barI%sc.len];
+    // mesure à 2 accords : les rythmes qui ne frappent pas sur le temps 3 le font quand même
+    if(spl&&sc.cpat==='ronde') CPAT.blanches.f(s,t,sd,curNotes);
+    else if(spl&&sc.cpat==='charleston'){ if(s===0||s===8) chit(curNotes,t,sd*5.5); }
+    else CPAT[sc.cpat].f(s,t,sd,curNotes); }
   // basse
   const st=sc.bass[s];
-  if(st){ const bch=bassChordAt(barI), midi=mapBass(st.n,bch); const leg=st.l&&B.held;
+  if(st){ const bch=bassChordAt(barI,s), midi=mapBass(st.n,bch); const leg=st.l&&B.held;
     const nx=sc.bass[(s+1)%16], keep=!!(nx&&nx.l); bassNote(midi,t,st.a,leg,sd*.9,!keep); B.held=keep; }
   else B.held=false;
   vq.push({t,s,bar:barI,ch,notes:curNotes});
@@ -1190,18 +1207,28 @@ dsel($('cnb'),{n3:'3 sons',n4:'4 sons',n5:'5 sons'},()=>'n'+SONG.chords.nb,k=>{ 
 $('clead').onchange=e=>{ SONG.chords.lead=e.target.checked; save(); };
 seg($('secmode'),{v:'Dominante V7',dim:'Diminuée VII°7',sub:'Substitution tritonique'},()=>SONG.chords.sec,k=>{ SONG.chords.sec=k; renderPads(); });
 $('borrow').onchange=e=>{ SONG.chords.borrow=e.target.value; renderPads(); save(); };
-let writing=false, selSlot=0;
+let writing=false, selSlot=0, selHalf=0;
 $('gwrite').onclick=()=>{ writing=!writing; renderGrille(); };
-$('gdel').onclick=()=>{ pushUndo(); SC().bars[selSlot]=null; curChordKey=null; renderGrille(); save(); };
-$('gclear').onclick=()=>{ pushUndo(); SC().bars=Array(16).fill(null); curChordKey=null; renderGrille(); save(); };
+$('gdel').onclick=()=>{ pushUndo(); const sc=SC(); if(selHalf&&SPL(sc)[selSlot]) B2(sc)[selSlot]=null; else sc.bars[selSlot]=null; curChordKey=null; renderGrille(); save(); };
+$('gclear').onclick=()=>{ pushUndo(); const sc=SC(); sc.bars=Array(16).fill(null); sc.bars2=Array(16).fill(null); sc.split=Array(16).fill(false); curChordKey=null; renderGrille(); save(); };
+$('gsplit').onclick=()=>{ pushUndo(); const sc=SC(), sp=SPL(sc), on=!sp[selSlot]; sp[selSlot]=on;
+  if(!on){ B2(sc)[selSlot]=null; selHalf=0; } else { selHalf=sc.bars[selSlot]?1:0; } writing=true; curChordKey=null; renderGrille(); save(); };
+function writeRef(ref){ const sc=SC(); if(selHalf&&SPL(sc)[selSlot]) B2(sc)[selSlot]=ref; else sc.bars[selSlot]=ref;
+  if(!selHalf&&SPL(sc)[selSlot]) selHalf=1; else { selHalf=0; selSlot=(selSlot+1)%sc.len; } }
 let slotEls=[];
 function renderGrille(){ const sc=SC(), g=$('grille'); g.innerHTML=''; slotEls=[];
-  for(let i=0;i<16;i++){ const ch=resolve(sc.bars[i]), b=document.createElement('button'); b.className='slot'+(ch?' full':'')+(ch&&ch.bor?' bor':'')+(ch&&ch.sec?' sec':'')+(i>=sc.len?' off':'')+(writing&&i===selSlot?' sel':'');
-    b.innerHTML=`<span class="n">${i+1}</span>`+(ch?`<span class="rn">${ch.roman}</span><span class="cn">${ch.name}</span>`:'<span class="rn" style="color:var(--muted)">—</span>');
-    b.onclick=()=>{ if(i>=sc.len){ sc.len=i+1; $('glen').value=sc.len; } selSlot=i; writing=true; renderGrille(); save(); };
+  const sp=SPL(sc), b2=B2(sc), lab=ch=>ch?`<span class="rn">${ch.roman}</span><span class="cn">${ch.name}</span>`:'<span class="rn" style="color:var(--muted)">—</span>';
+  for(let i=0;i<16;i++){ const ch=resolve(sc.bars[i]), b=document.createElement('button'), go=h=>{ if(i>=sc.len){ sc.len=i+1; $('glen').value=sc.len; } selSlot=i; selHalf=h; writing=true; renderGrille(); save(); };
+    if(sp[i]){ const ch2=resolve(b2[i]); b.className='slot split'+(ch||ch2?' full':'')+(i>=sc.len?' off':'');
+      b.innerHTML=`<span class="n">${i+1}</span>`; [ch,ch2].forEach((c,h)=>{ const s=document.createElement('span'); s.className='h'+(c&&c.bor?' bor':'')+(writing&&i===selSlot&&selHalf===h?' sel':''); s.innerHTML=lab(c); s.onclick=e=>{ e.stopPropagation(); go(h); }; b.appendChild(s); });
+      b.onclick=()=>go(0); }
+    else { b.className='slot'+(ch?' full':'')+(ch&&ch.bor?' bor':'')+(ch&&ch.sec?' sec':'')+(i>=sc.len?' off':'')+(writing&&i===selSlot?' sel':'');
+      b.innerHTML=`<span class="n">${i+1}</span>`+lab(ch); b.onclick=()=>go(0); }
     g.appendChild(b); slotEls.push(b); }
-  $('gwrite').classList.toggle('on',writing); $('gwrite').textContent=writing?'✎ Écriture : case '+(selSlot+1):'✎ Écrire';
-  $('ghint').innerHTML = SONG.chords.src==='live' ? 'Mode <b>live</b> : la grille est ignorée, touche les pads pendant la lecture.' : writing ? 'Touche un pad pour l\'inscrire dans la case <b>'+(selSlot+1)+'</b>. Retouche « Écriture » pour terminer.' : 'Touche ✎ Écrire (ou une case), puis les pads, pour composer la grille.';
+  const cas=(selSlot+1)+(sp[selSlot]?(selHalf?' (2e moitié)':' (1re moitié)'):'');
+  $('gwrite').classList.toggle('on',writing); $('gwrite').textContent=writing?'✎ Écriture : case '+cas:'✎ Écrire';
+  $('gsplit').classList.toggle('on',!!sp[selSlot]); $('gsplit').textContent=sp[selSlot]?'½ 1 accord':'½ 2 accords';
+  $('ghint').innerHTML = SONG.chords.src==='live' ? 'Mode <b>live</b> : la grille est ignorée, touche les pads pendant la lecture.' : writing ? 'Touche un pad pour l\'inscrire dans la case <b>'+cas+'</b>. « ½ 2 accords » coupe la mesure en deux (temps 1-2 et 3-4). Retouche « Écriture » pour terminer.' : 'Touche ✎ Écrire (ou une case), puis les pads, pour composer la grille. « ½ 2 accords » met deux accords dans la mesure choisie.';
 }
 const HOMEKEYS=['Digit1','Digit2','Digit3','Digit4','Digit5','Digit6','Digit7'], BORKEYS=['KeyQ','KeyW','KeyE','KeyR','KeyT','KeyY','KeyU'], BORLBL=['A','Z','E','R','T','Y','U'], SECKEYS=['KeyA','KeyS','KeyD','KeyF','KeyG','KeyH','KeyJ'], SECLBL=['Q','S','D','F','G','H','J'];
 let homeEls=[], borEls=[], secEls=[], heldChord=null;
@@ -1221,7 +1248,7 @@ const BASS_OPTS=[[0,0],[0,1],[1,-1],[1,0],[1,1],[2,-1],[2,0],[3,0],[3,1],[4,-1],
 function renderBassSel(){ const s=$('cbass'); if(!s.options.length){ s.add(new Option('Fondamentale','')); BASS_OPTS.forEach(([l,a])=>s.add(new Option(nameFR({l,a}),l+','+a))); s.onchange=()=>{ SONG.chords.bn=s.value; save(); renderPads(); }; } s.value=SONG.chords.bn||''; }
 function showChord(ch,notes){ const bp=ch&&ch.bassPc!=null?ch.bassPc:ch?ch.pcs[0]:0; $('cstaff').innerHTML = ch&&notes ? chordStaff(notes, 36+((bp-36)%12+12)%12, ch.bassNote?ch.nn.concat([ch.bassNote]):ch.nn) : chordStaff([],null); $('cbig').textContent=ch?ch.name:'–'; $('cbig').style.color=ch&&ch.sec?'var(--sec)':ch&&ch.bor?'var(--bor)':''; $('crn').textContent=ch?ch.roman+(ch.bassNote?(ch.inv?' · renversement':' · basse étrangère'):'')+(ch.sec?' · se résout sur '+ch.target:ch.bor?' · emprunt':''):''; $('cnotes').textContent=ch?ch.fr:''; $('nowc').textContent=ch?ch.name:'–'; }
 function padPress(b){ audioOn(); const ref=b._ref, ch=resolve(ref);
-  if(writing){ pushUndo(); SC().bars[selSlot]=ref; curChordKey=null; selSlot=(selSlot+1)%SC().len; renderGrille(); save(); }
+  if(writing){ pushUndo(); writeRef(ref); curChordKey=null; renderGrille(); save(); }
   if(playing&&SONG.chords.src==='live'){ liveRef=ref; showChord(ch,voicing(ch.pcs)); return; }
   if(playing&&!writing) { previewChord(ch,b); return; }
   previewChord(ch,b); }
@@ -1411,10 +1438,10 @@ function renderAll(){ $('bpm').textContent=SONG.bpm; $('tonic').value=SONG.tonic
 $('clead').checked=SONG.chords.lead; $('svib').checked=SONG.synth.vib;
   renderMchips(); renderChords(); renderScene(); renderStrips(); renderFx(); buildKb(); refreshers.forEach(f=>f()); }
 function paintPh(s,barI){
-  document.querySelectorAll('.cell.ph,.rc.ph,.slot.ph').forEach(c=>c.classList.remove('ph'));
+  document.querySelectorAll('.cell.ph,.rc.ph,.slot.ph,.slot .h.ph').forEach(c=>c.classList.remove('ph'));
   if(s<0){ const bp=document.getElementById('bsPh'); if(bp) bp.setAttribute('x',-200); const dp=document.getElementById('dsPh'); if(dp) dp.setAttribute('x',-200); return; } seqCells.forEach(r=>r[s]&&r[s].classList.add('ph'));
   for(let n=ROLL_LO-36;n<=ROLL_HI-36;n++){ const c=rollCells[n+'_'+s]; if(c) c.classList.add('ph'); }
-  if(SONG.chords.src==='grille'){ const el=slotEls[barI%SC().len]; if(el) el.classList.add('ph'); }
+  if(SONG.chords.src==='grille'){ const el=slotEls[barI%SC().len]; if(el){ el.classList.add('ph'); const hs=el.querySelectorAll('.h'); if(hs.length) hs[s>=8?1:0].classList.add('ph'); } }
   const bp=document.getElementById('bsPh'); if(bp) bp.setAttribute('x',BS_LEFT+s*BS_STEP);
   const dp=document.getElementById('dsPh'); if(dp) dp.setAttribute('x',DS_LEFT+s*DS_STEP);
 }
