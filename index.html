@@ -937,7 +937,8 @@ const masterG=G(SONG.mix.master), comp=ctx.createDynamicsCompressor();
 comp.threshold.value=-9; comp.knee.value=6; comp.ratio.value=5; comp.attack.value=.003; comp.release.value=.2;
 const revIn=G(1), conv=ctx.createConvolver();
 (function(){ const len=ctx.sampleRate*(LIGHT?1.3:2.4), b=ctx.createBuffer(2,len,ctx.sampleRate); for(let c=0;c<2;c++){ const d=b.getChannelData(c); for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,3.4); } conv.buffer=b; })();
-conv.connect(masterG); let revOn=false; // la réverb n'est branchée que si un instrument y envoie du son masterG.connect(comp).connect(ctx.destination);
+conv.connect(masterG); masterG.connect(comp).connect(ctx.destination);
+let revOn=false; // la réverb n'est branchée que si un instrument y envoie du son
 const panner = v => { if(ctx.createStereoPanner){ const p=ctx.createStereoPanner(); p.pan.value=v; return p; } return G(1); };
 const lfoOsc = f => { const o=ctx.createOscillator(); o.frequency.value=f; o.start(); return o; };
 function satCurve(drive){ const k=1+drive*40, n=2048, c=new Float32Array(n), t=Math.tanh(k); for(let i=0;i<n;i++){ const x=i*2/(n-1)-1; c[i]=Math.tanh(k*x)/t; } return {c,post:Math.min(1,.28+1.2/k)}; }
@@ -1555,7 +1556,7 @@ $('sndtest').onclick=()=>{ unlockAudio(); audioOn();
   const show=()=>{ const t0=ctx.currentTime+.05; beep(ctx.destination,660,t0); beep(CH.synth.inp,440,t0+.7);
     const solo=Object.keys(CHN).filter(k=>SONG.mix[k].solo), mute=Object.keys(CHN).filter(k=>SONG.mix[k].mute);
     $('sndinfo').innerHTML='Moteur audio : <b>'+({running:'actif',suspended:'en pause (bloqué)',closed:'fermé'}[ctx.state]||ctx.state)+'</b> · '+ctx.sampleRate+' Hz · latence '+Math.round(((ctx.baseLatency||0)+(ctx.outputLatency||0))*1000)+' ms · volume général '+Math.round(SONG.mix.master*100)+' %'+(mute.length?' · coupés : '+mute.join(', '):'')+(solo.length?' · en solo : '+solo.join(', '):'')+'<br>Tu dois entendre <b>deux bips</b> : un aigu (sortie directe) puis un plus grave (à travers le mixeur).'; };
-  if(ctx.state==='running') show(); else ctx.resume().then(show,show); setTimeout(show,800); };
+  if(ctx.state==='running') show(); else ctx.resume().then(show,show); };
 $('lightsel').value=LIGHT_PREF; $('lighthint').innerHTML=(LIGHT?'Le mode léger est <b>activé</b> sur cet appareil.':'Le mode léger est <b>désactivé</b> sur cet appareil.')+' En automatique, il s\'active sur les téléphones, les tablettes et les ordinateurs modestes. Il allège les calculs pour éviter les craquements et les coupures du son. Changer ce réglage recharge l\'appli (le morceau est conservé).';
 $('lightsel').onchange=e=>{ try{ localStorage.setItem('groovebox-leger',e.target.value); localStorage.setItem('groovebox-morceau',JSON.stringify(SONG)); }catch(_){} location.reload(); };
 applyMix(); updateFX(); bassParams(); synthVibUpdate(); renderAll(); showTab(curTab); bhint(); showChord(null);
