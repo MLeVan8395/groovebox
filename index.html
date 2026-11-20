@@ -109,6 +109,8 @@ details.help b{color:var(--text)}
 #grille.dragging .slot:not(.off){border-color:color-mix(in srgb,var(--mx) 60%,var(--line))}
 .slot.dropok,.slot .h.dropok{outline:3px solid var(--mx);outline-offset:-3px}
 .slot.dragsrc{opacity:.45}
+.slot .away{color:var(--muted);font-size:.85em}
+.slot .h .away{display:none}
 .slot.split{flex-direction:row;padding:0;gap:0;align-items:stretch}
 .slot .h{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;padding:12px 1px 2px;border-radius:9px}
 .slot .h+.h{border-left:1px dashed var(--line)}
@@ -265,7 +267,7 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
     <h2>Grille de la scène <select id="glen" aria-label="Nombre de mesures"></select>
       <span class="seg" id="csrc" style="--c:var(--ch)"></span>
       <button class="btn" id="gwrite" style="--c:var(--mx)">✎ Écrire</button>
-      <button class="btn" id="gsplit" title="Deux accords dans la mesure (un par demi-mesure)">½ 2 accords</button><button class="btn" id="gdel">Effacer la case</button><button class="btn" id="gclear">Vider la grille</button><button class="btn ub" data-undo title="Annuler (Ctrl+Z)">↶ Annuler</button><button class="btn ub" data-redo title="Rétablir (Ctrl+Maj+Z)">↷</button></h2>
+      <button class="btn" id="gsplit" title="Deux accords dans la mesure (un par demi-mesure)">½ 2 accords</button><button class="btn" id="gdel">Effacer la case</button><button class="btn" id="gtrans" title="Mettre tous les accords de la grille dans la tonalité choisie en haut">⇅ Transposer</button><button class="btn" id="gclear">Vider la grille</button><button class="btn ub" data-undo title="Annuler (Ctrl+Z)">↶ Annuler</button><button class="btn ub" data-redo title="Rétablir (Ctrl+Maj+Z)">↷</button></h2>
     <div class="grille" id="grille"></div>
     <p class="gdesc" id="ghint"></p>
   </div>
@@ -704,9 +706,13 @@ function secChord(kind,t,mode,d,nb){
 }
 const secTargets=(t,mode)=>{ const sc=scaleOf(t,mode), tp=pcOf(t); return [0,1,2,3,4,5,6].filter(i=>{ const c=chordOf(sc,i,false,tp), s=c.name.slice(nameEN(sc[i]).length); return s===''||s==='m'; }); };
 const tonicNote=()=>{ const [,l,a]=TONICS[SONG.tonic]; return {l,a}; };
-function resolve(ref){ if(!ref) return null; const t=tonicNote(), n=ref.n||SONG.chords.nb; let c;
-  if(ref.s) c=secChord(ref.s,t,SONG.mode,ref.d,n); else { const sc=scaleOf(t, ref.b||SONG.mode); c=chordOf(sc,ref.d,n,pcOf(t)); c.bor=!!ref.b && ref.b!==SONG.mode; }
-  let bn=null; if(ref.bl!=null){ const l=(t.l+ref.bl)%7, pc=(pcOf(t)+ref.bi)%12; let a=((pc-NAT[l])%12+12)%12; if(a>6)a-=12; bn={l,a}; } else if(ref.bd!=null) bn=scaleOf(t,SONG.mode)[ref.bd];
+// Un accord de la grille garde la tonalité (t) et le mode (m) dans lesquels il a été écrit :
+// changer de tonalité ensuite ne le modifie pas. Sans t/m, il suit la tonalité en cours.
+const modeShort=m=>MODES[m].n.split(' ')[0].toLowerCase();
+function resolve(ref){ if(!ref) return null; const tk=ref.t!=null?ref.t:SONG.tonic, md=ref.m||SONG.mode, t=(([,l,a])=>({l,a}))(TONICS[tk]), n=ref.n||SONG.chords.nb; let c;
+  if(ref.s) c=secChord(ref.s,t,md,ref.d,n); else { const sc=scaleOf(t, ref.b||md); c=chordOf(sc,ref.d,n,pcOf(t)); c.bor=!!ref.b && ref.b!==md; }
+  if(tk!==SONG.tonic||md!==SONG.mode) c.away=TONICS[tk][0]+' '+modeShort(md);
+  let bn=null; if(ref.bl!=null){ const l=(t.l+ref.bl)%7, pc=(pcOf(t)+ref.bi)%12; let a=((pc-NAT[l])%12+12)%12; if(a>6)a-=12; bn={l,a}; } else if(ref.bd!=null) bn=scaleOf(t,md)[ref.bd];
   if(bn){ const bp=pcOf(bn);
     if(bp!==c.pcs[0]){ c.bassPc=bp; c.bassNote=bn; c.inv=c.pcs.includes(bp); c.name+='/'+nameEN(bn); c.key+='/'+bp; c.fr+=' / basse '+nameFR(bn); } }
   return c; }
@@ -1231,8 +1237,8 @@ $('play').onclick=()=>playing?stop():start(); $('fab').onclick=()=>playing?stop(
 const setBpm=v=>{ SONG.bpm=Math.max(50,Math.min(200,Math.round(v))); $('bpm').textContent=SONG.bpm; updateFX(); save(); };
 $('bpmDn').onclick=()=>setBpm(SONG.bpm-1); $('bpmUp').onclick=()=>setBpm(SONG.bpm+1);
 let taps=[]; $('tap').onclick=()=>{ const n=performance.now(); taps=taps.filter(x=>n-x<2500); taps.push(n); if(taps.length>=3){ const d=(taps[taps.length-1]-taps[0])/(taps.length-1); setBpm(60000/d); } };
-$('tonic').onchange=e=>{ SONG.tonic=+e.target.value; curChordKey=null; renderChords(); save(); };
-$('mode').onchange=e=>{ SONG.mode=e.target.value; if(SONG.chords.borrow===SONG.mode){ SONG.chords.borrow=SONG.mode==='ionien'?'eolien':'ionien'; } curChordKey=null; renderChords(); save(); };
+$('tonic').onchange=e=>{ stampGrid(); SONG.tonic=+e.target.value; curChordKey=null; renderChords(); save(); };
+$('mode').onchange=e=>{ stampGrid(); SONG.mode=e.target.value; if(SONG.chords.borrow===SONG.mode){ SONG.chords.borrow=SONG.mode==='ionien'?'eolien':'ionien'; } curChordKey=null; renderChords(); save(); };
 $('style').onchange=e=>{ const k=e.target.value; if(!k) return; applyStyle(k); e.target.value=''; };
 function applyStyle(k){ pushUndo(); const st=STYLES[k], dp=PRESETS[st.drum], sc=SC(); sc.dres=16;
   sc.drums=drumFromPreset(st.drum); sc.bass=parseBass(BASS_PRESETS[st.bass].s); sc.bpre=st.bass; sc.cpat=st.cp;
@@ -1301,13 +1307,16 @@ let writing=false, selSlot=0, selHalf=0;
 $('gwrite').onclick=()=>{ writing=!writing; renderGrille(); };
 $('gdel').onclick=()=>{ pushUndo(); const sc=SC(); if(selHalf&&SPL(sc)[selSlot]) B2(sc)[selSlot]=null; else sc.bars[selSlot]=null; curChordKey=null; renderGrille(); save(); };
 $('gclear').onclick=()=>{ pushUndo(); const sc=SC(); sc.bars=Array(16).fill(null); sc.bars2=Array(16).fill(null); sc.split=Array(16).fill(false); curChordKey=null; renderGrille(); save(); };
+// avant de changer de tonalité ou de mode, on fixe la tonalité des accords déjà écrits
+function stampGrid(){ const k=SONG.tonic, m=SONG.mode; SONG.scenes.forEach(sc=>[sc.bars,sc.bars2||[]].forEach(a=>a.forEach((r,i)=>{ if(r&&r.t==null) a[i]=Object.assign({},r,{t:k,m}); }))); }
+$('gtrans').onclick=()=>{ pushUndo(); const sc=SC(); [sc.bars,B2(sc)].forEach(a=>a.forEach((r,i)=>{ if(r){ const c=Object.assign({},r); delete c.t; delete c.m; a[i]=c; } })); curChordKey=null; renderGrille(); save(); };
 $('gsplit').onclick=()=>{ pushUndo(); const sc=SC(), sp=SPL(sc), on=!sp[selSlot]; sp[selSlot]=on;
   if(!on){ B2(sc)[selSlot]=null; selHalf=0; } else { selHalf=sc.bars[selSlot]?1:0; } writing=true; curChordKey=null; renderGrille(); save(); };
 function writeRef(ref){ const sc=SC(); if(selHalf&&SPL(sc)[selSlot]) B2(sc)[selSlot]=ref; else sc.bars[selSlot]=ref;
   if(!selHalf&&SPL(sc)[selSlot]) selHalf=1; else { selHalf=0; selSlot=(selSlot+1)%sc.len; } }
 let slotEls=[];
 function renderGrille(){ const sc=SC(), g=$('grille'); g.innerHTML=''; slotEls=[];
-  const sp=SPL(sc), b2=B2(sc), lab=ch=>ch?`<span class="rn">${ch.roman}</span><span class="cn">${ch.name}</span>`:'<span class="rn" style="color:var(--muted)">—</span>';
+  const sp=SPL(sc), b2=B2(sc), lab=ch=>ch?`<span class="rn">${ch.roman}${ch.away?'<span class="away"> en '+ch.away+'</span>':''}</span><span class="cn">${ch.name}</span>`:'<span class="rn" style="color:var(--muted)">—</span>';
   for(let i=0;i<16;i++){ const ch=resolve(sc.bars[i]), b=document.createElement('button'), go=h=>{ if(i>=sc.len){ sc.len=i+1; $('glen').value=sc.len; } selSlot=i; selHalf=h; writing=true; renderGrille(); save(); };
     if(sp[i]){ const ch2=resolve(b2[i]); b.className='slot split'+(ch||ch2?' full':'')+(i>=sc.len?' off':'');
       b.innerHTML=`<span class="n">${i+1}</span>`; [ch,ch2].forEach((c,h)=>{ const s=document.createElement('span'); s.className='h'+(c&&c.bor?' bor':'')+(writing&&i===selSlot&&selHalf===h?' sel':''); s.innerHTML=lab(c); s.onclick=e=>{ e.stopPropagation(); go(h); }; b.appendChild(s); });
@@ -1318,7 +1327,7 @@ function renderGrille(){ const sc=SC(), g=$('grille'); g.innerHTML=''; slotEls=[
   const cas=(selSlot+1)+(sp[selSlot]?(selHalf?' (2e moitié)':' (1re moitié)'):'');
   $('gwrite').classList.toggle('on',writing); $('gwrite').textContent=writing?'✎ Écriture : case '+cas:'✎ Écrire';
   $('gsplit').classList.toggle('on',!!sp[selSlot]); $('gsplit').textContent=sp[selSlot]?'½ 1 accord':'½ 2 accords';
-  $('ghint').innerHTML = SONG.chords.src==='live' ? 'Mode <b>live</b> : la grille est ignorée, touche les pads pendant la lecture.' : writing ? 'Touche un pad pour l\'inscrire dans la case <b>'+cas+'</b>. « ½ 2 accords » coupe la mesure en deux (temps 1-2 et 3-4). Retouche « Écriture » pour terminer.' : 'Touche ✎ Écrire (ou une case), puis les pads, pour composer la grille. Tu peux aussi <b>faire glisser un pad</b> directement dans une case, ou faire glisser une case sur une autre pour les échanger. « ½ 2 accords » met deux accords dans la mesure choisie.';
+  $('ghint').innerHTML = SONG.chords.src==='live' ? 'Mode <b>live</b> : la grille est ignorée, touche les pads pendant la lecture.' : writing ? 'Touche un pad pour l\'inscrire dans la case <b>'+cas+'</b>. « ½ 2 accords » coupe la mesure en deux (temps 1-2 et 3-4). Retouche « Écriture » pour terminer.' : 'Touche ✎ Écrire (ou une case), puis les pads, pour composer la grille. Tu peux aussi <b>faire glisser un pad</b> directement dans une case, ou faire glisser une case sur une autre pour les échanger. Changer de tonalité ne modifie pas les accords déjà écrits (on peut moduler) ; « ⇅ Transposer » les fait passer dans la tonalité choisie. « ½ 2 accords » met deux accords dans la mesure choisie.';
 }
 const HOMEKEYS=['Digit1','Digit2','Digit3','Digit4','Digit5','Digit6','Digit7'], BORKEYS=['KeyQ','KeyW','KeyE','KeyR','KeyT','KeyY','KeyU'], BORLBL=['A','Z','E','R','T','Y','U'], SECKEYS=['KeyA','KeyS','KeyD','KeyF','KeyG','KeyH','KeyJ'], SECLBL=['Q','S','D','F','G','H','J'];
 let homeEls=[], borEls=[], secEls=[], heldChord=null;
