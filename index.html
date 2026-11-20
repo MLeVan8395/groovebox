@@ -389,6 +389,13 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
 <button class="fab" id="fab" aria-label="Lecture / arrêt">▶</button>
 <footer><p>Groovebox · © 2026 Mickael Le Van – tous droits réservés (reproduction et usage commercial interdits) · sons du kit acoustique : <a href="https://github.com/sfzinstruments/virtuosity_drums" style="color:inherit">Virtuosity Drums</a> (Versilian Studios, CC0) ; kit rock : <a href="https://github.com/sfzinstruments/SMDrums" style="color:inherit">SM Drums</a> (domaine public) ; contrebasse : <a href="https://github.com/sgossner/VSCO-2-CE" style="color:inherit">VSCO 2 CE</a> (CC0) ; basse électrique : <a href="https://www.karoryfer.com/karoryfer-samples" style="color:inherit">Karoryfer Samples</a> via tonejs-instruments (CC BY 3.0) · notes en Do, Ré, Mi… ; accords en lettres · aucune donnée collectée.</p></footer>
 
+<div id="errbar" style="display:none;position:fixed;left:8px;right:8px;bottom:8px;z-index:99;background:#5a1d1d;color:#fff;border:1px solid #e57373;border-radius:10px;padding:8px 12px;font:13px/1.4 system-ui,sans-serif"></div>
+<script>
+// Si une erreur se produit, on l'affiche en bas de l'écran (utile pour signaler un problème)
+function showErr(m){ const e=document.getElementById('errbar'); if(!e||e.dataset.n>=3) return; e.dataset.n=(+e.dataset.n||0)+1; e.style.display='block'; e.innerHTML+=(e.innerHTML?'<br>':'<b>Erreur à signaler</b> (fais une capture d\'écran) : ')+String(m).replace(/</g,'&lt;'); }
+window.addEventListener('error',e=>showErr((e.message||e.error)+(e.lineno?' (ligne '+e.lineno+')':'')));
+window.addEventListener('unhandledrejection',e=>{ const r=e.reason; if(r&&r.name==='EncodingError') return; showErr('promesse : '+(r&&r.message||r)); });
+</script>
 <script>
 /* ======================================================================
    AUDIO DE BASE
@@ -1169,7 +1176,7 @@ function schedStep(s,barI,t){
 function tick(){
   while(nextT<ctx.currentTime+(LIGHT?.3:.12)){
     if(step===0&&queued!=null){ SONG.cur=queued; queued=null; bar=0; renderScene(); save(); }
-    schedStep(step,bar,nextT+swingOff(step));
+    try{ schedStep(step,bar,nextT+swingOff(step)); }catch(e){ showErr('lecture : '+e.message); }
     nextT+=sdur(); step++; if(step===16){ step=0; bar++; }
   }
 }
