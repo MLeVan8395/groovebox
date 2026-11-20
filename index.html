@@ -379,7 +379,7 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
       <p><b>La réverb</b> (calcul par convolution) : elle ne tourne que si un instrument y envoie du son. En mode léger, sa queue est plus courte.</p>
       <p><b>Les sons d'accords à plusieurs oscillateurs</b> (Nappe, Orgue), surtout avec des accords à 5 sons : plus lourds que le piano électrique.</p>
       <p><b>L'affichage pendant la lecture</b> (tête de lecture, vu-mètres). En mode léger, les vu-mètres sont rafraîchis moins souvent.</p>
-      <p>En mode léger, l'appli prépare aussi le son plus en avance et demande au navigateur une mémoire tampon audio plus grande : les petites coupures (« glitches ») disparaissent, au prix d'une très légère latence quand on joue sur les pads.</p>
+      <p>En mode léger, l'appli prépare aussi le son plus en avance : les petites coupures (« glitches ») disparaissent quand l'appareil est occupé.</p>
     </details></div>
   <div class="panel"><h2>Morceau</h2>
     <div class="row"><button class="btn danger" id="newSong">Nouveau morceau</button><span class="gdesc" style="margin:0">Le morceau est enregistré automatiquement dans cet appareil.</span></div></div>
@@ -397,7 +397,9 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
 let LIGHT_PREF='auto'; try{ LIGHT_PREF=localStorage.getItem('groovebox-leger')||'auto'; }catch(e){}
 const LIGHT_AUTO=(matchMedia('(pointer:coarse)').matches&&!matchMedia('(any-pointer:fine)').matches)||(navigator.hardwareConcurrency||8)<=2||(navigator.deviceMemory||8)<=2;
 const LIGHT = LIGHT_PREF==='on' || (LIGHT_PREF==='auto' && LIGHT_AUTO);
-let AC; try{ AC=new (window.AudioContext||window.webkitAudioContext)(LIGHT?{latencyHint:'playback'}:{latencyHint:'interactive'}); }catch(e){ AC=new (window.AudioContext||window.webkitAudioContext)(); }
+// iPhone/iPad : sans ça, le son est coupé quand le téléphone est en mode silencieux
+try{ if(navigator.audioSession) navigator.audioSession.type='playback'; }catch(e){}
+const AC = new (window.AudioContext||window.webkitAudioContext)();
 const ctx = AC;
 const G = v => { const g=ctx.createGain(); g.gain.value=v; return g; };
 const mtof = m => 440*Math.pow(2,(m-69)/12);
@@ -1174,6 +1176,14 @@ function start(){ audioOn(); if(playing) return; playing=true; step=0; bar=0; ar
 function stop(){ playing=false; clearInterval(timer); vq.length=0; queued=null; bassOff(); $('play').classList.remove('on'); $('play').textContent='▶'; $('fab').classList.remove('on'); $('fab').textContent='▶'; paintPh(-1,-1); renderScenes(); }
 let audioStarted=false;
 function audioOn(){ if(ctx.state!=='running') ctx.resume(); if(!audioStarted){ audioStarted=true; $('startnote').style.display='none'; } }
+// Déblocage du son sur téléphone : Safari et Chrome n'autorisent le son qu'après un vrai geste
+// (doigt levé, clic, touche). On relance le moteur audio et on joue un son vide à chaque geste tant qu'il n'est pas actif.
+function unlockAudio(){ try{ if(ctx.state!=='running') ctx.resume(); const b=ctx.createBuffer(1,1,22050), s=ctx.createBufferSource(); s.buffer=b; s.connect(ctx.destination); s.start(0); }catch(e){}
+  if(ctx.state==='running') ['touchend','pointerup','click','keydown'].forEach(ev=>document.removeEventListener(ev,unlockAudio,true)); }
+['touchend','pointerup','click','keydown'].forEach(ev=>document.addEventListener(ev,unlockAudio,true));
+ctx.onstatechange=()=>{ if(ctx.state==='running') ['touchend','pointerup','click','keydown'].forEach(ev=>document.removeEventListener(ev,unlockAudio,true)); };
+// au retour dans l'appli (après un appel, l'écran de veille…), on relance le son
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&audioStarted&&ctx.state!=='running') ctx.resume(); });
 
 /* ======================================================================
    INTERFACE
