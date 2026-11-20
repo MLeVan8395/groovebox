@@ -374,6 +374,7 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
   </div>
   <div class="panel" id="perfpanel"><h2>Mode léger <select id="lightsel" aria-label="Mode léger"><option value="auto">Automatique</option><option value="on">Toujours activé</option><option value="off">Toujours désactivé</option></select></h2>
     <p class="gdesc" id="lighthint"></p>
+    <div class="row"><button class="btn" id="sndtest">🔊 Tester le son</button><span class="gdesc" id="sndinfo" style="margin:0"></span></div>
     <details class="help"><summary>Ce qui consomme le plus</summary>
       <p><b>Les effets</b> : chaque instrument a sa chaîne de 6 effets. Un effet éteint est maintenant débranché et ne coûte plus rien : n'allume que ceux qui servent.</p>
       <p><b>La réverb</b> (calcul par convolution) : elle ne tourne que si un instrument y envoie du son. En mode léger, sa queue est plus courte.</p>
@@ -1541,6 +1542,13 @@ let lastS=-1, synthDrawn='', frameN=0; // les courbes du synthé ne sont redessi
 })();
 
 $('lightchip').style.display=LIGHT?'':'none'; $('lightchip').onclick=()=>{ showTab('mix'); $('perfpanel').scrollIntoView({behavior:'smooth'}); };
+$('sndtest').onclick=()=>{ unlockAudio(); audioOn();
+  // bip direct vers la sortie (sans passer par le mixeur), puis bip à travers le mixeur
+  const beep=(dest,f,t0)=>{ const o=ctx.createOscillator(), g=ctx.createGain(); o.frequency.value=f; g.gain.setValueAtTime(0,t0); g.gain.linearRampToValueAtTime(.3,t0+.02); g.gain.setTargetAtTime(0,t0+.3,.05); o.connect(g).connect(dest); o.start(t0); o.stop(t0+.6); };
+  const show=()=>{ const t0=ctx.currentTime+.05; beep(ctx.destination,660,t0); beep(CH.synth.inp,440,t0+.7);
+    const solo=Object.keys(CHN).filter(k=>SONG.mix[k].solo), mute=Object.keys(CHN).filter(k=>SONG.mix[k].mute);
+    $('sndinfo').innerHTML='Moteur audio : <b>'+({running:'actif',suspended:'en pause (bloqué)',closed:'fermé'}[ctx.state]||ctx.state)+'</b> · '+ctx.sampleRate+' Hz · latence '+Math.round(((ctx.baseLatency||0)+(ctx.outputLatency||0))*1000)+' ms · volume général '+Math.round(SONG.mix.master*100)+' %'+(mute.length?' · coupés : '+mute.join(', '):'')+(solo.length?' · en solo : '+solo.join(', '):'')+'<br>Tu dois entendre <b>deux bips</b> : un aigu (sortie directe) puis un plus grave (à travers le mixeur).'; };
+  if(ctx.state==='running') show(); else ctx.resume().then(show,show); setTimeout(show,800); };
 $('lightsel').value=LIGHT_PREF; $('lighthint').innerHTML=(LIGHT?'Le mode léger est <b>activé</b> sur cet appareil.':'Le mode léger est <b>désactivé</b> sur cet appareil.')+' En automatique, il s\'active sur les téléphones, les tablettes et les ordinateurs modestes. Il allège les calculs pour éviter les craquements et les coupures du son. Changer ce réglage recharge l\'appli (le morceau est conservé).';
 $('lightsel').onchange=e=>{ try{ localStorage.setItem('groovebox-leger',e.target.value); localStorage.setItem('groovebox-morceau',JSON.stringify(SONG)); }catch(_){} location.reload(); };
 applyMix(); updateFX(); bassParams(); synthVibUpdate(); renderAll(); showTab(curTab); bhint(); showChord(null);
