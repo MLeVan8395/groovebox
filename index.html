@@ -104,6 +104,11 @@ details.help b{color:var(--text)}
 .slot.bor .rn{color:var(--bor)}
 .slot.sel{box-shadow:0 0 0 2px var(--mx) inset}
 .slot.ph{background:color-mix(in srgb,var(--ch) 30%,var(--panel2))}
+.dragghost{position:fixed;left:0;top:0;pointer-events:none;z-index:95;padding:7px 12px;border-radius:10px;background:color-mix(in srgb,var(--ch) 35%,var(--panel));border:1px solid var(--ch);color:var(--text);font-weight:700;font-size:16px;box-shadow:0 6px 18px #0008;transform:translate(-50%,-130%);white-space:nowrap}
+#grille .slot{touch-action:none}
+#grille.dragging .slot:not(.off){border-color:color-mix(in srgb,var(--mx) 60%,var(--line))}
+.slot.dropok,.slot .h.dropok{outline:3px solid var(--mx);outline-offset:-3px}
+.slot.dragsrc{opacity:.45}
 .slot.split{flex-direction:row;padding:0;gap:0;align-items:stretch}
 .slot .h{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;padding:12px 1px 2px;border-radius:9px}
 .slot .h+.h{border-left:1px dashed var(--line)}
@@ -1313,14 +1318,18 @@ function renderGrille(){ const sc=SC(), g=$('grille'); g.innerHTML=''; slotEls=[
   const cas=(selSlot+1)+(sp[selSlot]?(selHalf?' (2e moitié)':' (1re moitié)'):'');
   $('gwrite').classList.toggle('on',writing); $('gwrite').textContent=writing?'✎ Écriture : case '+cas:'✎ Écrire';
   $('gsplit').classList.toggle('on',!!sp[selSlot]); $('gsplit').textContent=sp[selSlot]?'½ 1 accord':'½ 2 accords';
-  $('ghint').innerHTML = SONG.chords.src==='live' ? 'Mode <b>live</b> : la grille est ignorée, touche les pads pendant la lecture.' : writing ? 'Touche un pad pour l\'inscrire dans la case <b>'+cas+'</b>. « ½ 2 accords » coupe la mesure en deux (temps 1-2 et 3-4). Retouche « Écriture » pour terminer.' : 'Touche ✎ Écrire (ou une case), puis les pads, pour composer la grille. « ½ 2 accords » met deux accords dans la mesure choisie.';
+  $('ghint').innerHTML = SONG.chords.src==='live' ? 'Mode <b>live</b> : la grille est ignorée, touche les pads pendant la lecture.' : writing ? 'Touche un pad pour l\'inscrire dans la case <b>'+cas+'</b>. « ½ 2 accords » coupe la mesure en deux (temps 1-2 et 3-4). Retouche « Écriture » pour terminer.' : 'Touche ✎ Écrire (ou une case), puis les pads, pour composer la grille. Tu peux aussi <b>faire glisser un pad</b> directement dans une case, ou faire glisser une case sur une autre pour les échanger. « ½ 2 accords » met deux accords dans la mesure choisie.';
 }
 const HOMEKEYS=['Digit1','Digit2','Digit3','Digit4','Digit5','Digit6','Digit7'], BORKEYS=['KeyQ','KeyW','KeyE','KeyR','KeyT','KeyY','KeyU'], BORLBL=['A','Z','E','R','T','Y','U'], SECKEYS=['KeyA','KeyS','KeyD','KeyF','KeyG','KeyH','KeyJ'], SECLBL=['Q','S','D','F','G','H','J'];
 let homeEls=[], borEls=[], secEls=[], heldChord=null;
 function makePad(ref,cls,kk,homeCh){ const ch=resolve(ref), b=document.createElement('button'); b.className='pad '+cls+(homeCh&&homeCh.key===ch.key?' same':''); b._ref=ref;
   b.innerHTML=`<span class="kk">${kk}</span><span class="rn">${ch.roman}</span><span class="cn">${ch.name}</span>`;
-  b.addEventListener('pointerdown',e=>{ e.preventDefault(); try{b.setPointerCapture(e.pointerId)}catch(_){} b.classList.add('down'); padPress(b); });
-  const up=()=>{ b.classList.remove('down'); padUp(b); }; b.addEventListener('pointerup',up); b.addEventListener('pointercancel',up); b.addEventListener('contextmenu',e=>e.preventDefault());
+  b.addEventListener('pointerdown',e=>{ e.preventDefault(); try{b.setPointerCapture(e.pointerId)}catch(_){} b.classList.add('down'); padPress(b,true); dragStart(e,{ref,label:ch.name}); });
+  b.addEventListener('pointermove',dragMove);
+  const up=e=>{ b.classList.remove('down'); padUp(b); const moved=dragEnd(e);
+    // en mode écriture, un simple appui inscrit l'accord dans la case choisie (le glisser le dépose où l'on veut)
+    if(!moved&&writing&&e.type==='pointerup'){ pushUndo(); writeRef(ref); curChordKey=null; renderGrille(); save(); } };
+  b.addEventListener('pointerup',up); b.addEventListener('pointercancel',e=>{ drag=null; dragClear(); up(e); }); b.addEventListener('contextmenu',e=>e.preventDefault());
   return b; }
 function renderPads(){ const t=tonicNote(); $('homeTitle').textContent='Accords de '+TONICS[SONG.tonic][0]+' '+MODES[SONG.mode].n.toLowerCase();
   const hp=$('homePads'), bp=$('borPads'); hp.innerHTML=''; bp.innerHTML='';
@@ -1332,8 +1341,8 @@ function renderPads(){ const t=tonicNote(); $('homeTitle').textContent='Accords 
 const BASS_OPTS=[[0,0],[0,1],[1,-1],[1,0],[1,1],[2,-1],[2,0],[3,0],[3,1],[4,-1],[4,0],[4,1],[5,-1],[5,0],[5,1],[6,-1],[6,0]];
 function renderBassSel(){ const s=$('cbass'); if(!s.options.length){ s.add(new Option('Fondamentale','')); BASS_OPTS.forEach(([l,a])=>s.add(new Option(nameFR({l,a}),l+','+a))); s.onchange=()=>{ SONG.chords.bn=s.value; save(); renderPads(); }; } s.value=SONG.chords.bn||''; }
 function showChord(ch,notes){ const bp=ch&&ch.bassPc!=null?ch.bassPc:ch?ch.pcs[0]:0; $('cstaff').innerHTML = ch&&notes ? chordStaff(notes, 36+((bp-36)%12+12)%12, ch.bassNote?ch.nn.concat([ch.bassNote]):ch.nn) : chordStaff([],null); $('cbig').textContent=ch?ch.name:'–'; $('cbig').style.color=ch&&ch.sec?'var(--sec)':ch&&ch.bor?'var(--bor)':''; $('crn').textContent=ch?ch.roman+(ch.bassNote?(ch.inv?' · renversement':' · basse étrangère'):'')+(ch.sec?' · se résout sur '+ch.target:ch.bor?' · emprunt':''):''; $('cnotes').textContent=ch?ch.fr:''; $('nowc').textContent=ch?ch.name:'–'; }
-function padPress(b){ audioOn(); const ref=b._ref, ch=resolve(ref);
-  if(writing){ pushUndo(); writeRef(ref); curChordKey=null; renderGrille(); save(); }
+function padPress(b,touch){ audioOn(); const ref=b._ref, ch=resolve(ref);
+  if(writing&&!touch){ pushUndo(); writeRef(ref); curChordKey=null; renderGrille(); save(); }
   if(playing&&SONG.chords.src==='live'){ liveRef=ref; showChord(ch,voicing(ch.pcs)); return; }
   if(playing&&!writing) { previewChord(ch,b); return; }
   previewChord(ch,b); }
@@ -1342,6 +1351,32 @@ function previewChord(ch,b){ stopHeldChord(); const notes=voicing(ch.pcs); lastV
 function stopHeldChord(){ if(heldChord){ const t=ctx.currentTime; heldChord.vs.forEach(v=>v.release(t)); heldChord=null; } }
 function padUp(b){ if(heldChord&&heldChord.el===b) stopHeldChord(); }
 function renderChords(){ renderPads(); renderGrille(); }
+// ---- Glisser-déposer : un pad vers une case de la grille, ou une case vers une autre (échange) ----
+let drag=null, dragOver=null, noClick=false;
+const getSlot=(sc,i,h)=>h&&SPL(sc)[i]?B2(sc)[i]:sc.bars[i];
+const setSlot=(sc,i,h,r)=>{ if(h&&SPL(sc)[i]) B2(sc)[i]=r; else sc.bars[i]=r; };
+function dropAt(x,y){ const el=document.elementFromPoint(x,y), s=el&&el.closest('#grille .slot'); if(!s) return null;
+  const i=slotEls.indexOf(s), hs=[...s.querySelectorAll('.h')], h=el.closest('.h'); return i<0?null:{i,h:h?hs.indexOf(h):0,el:h||s}; }
+function dragStart(e,o){ drag=Object.assign({x0:e.clientX,y0:e.clientY,on:false},o); }
+function dragClear(){ if(dragOver) dragOver.classList.remove('dropok'); dragOver=null; document.querySelectorAll('.dragghost').forEach(g=>g.remove()); $('grille').classList.remove('dragging'); document.querySelectorAll('.slot.dragsrc').forEach(s=>s.classList.remove('dragsrc')); }
+function dragMove(e){ if(!drag) return; const dx=e.clientX-drag.x0, dy=e.clientY-drag.y0;
+  if(!drag.on){ if(dx*dx+dy*dy<144) return; drag.on=true; const g=document.createElement('div'); g.className='dragghost'; g.textContent=drag.label; document.body.appendChild(g); drag.g=g; $('grille').classList.add('dragging'); if(drag.src){ drag.src.el.closest('.slot').classList.add('dragsrc'); try{ $('grille').setPointerCapture(drag.pid); }catch(_){} } }
+  drag.g.style.left=e.clientX+'px'; drag.g.style.top=e.clientY+'px';
+  const tg=dropAt(e.clientX,e.clientY), el=tg&&tg.el; if(el!==dragOver){ if(dragOver) dragOver.classList.remove('dropok'); dragOver=el; if(el) el.classList.add('dropok'); } }
+function dragEnd(e){ const d=drag; drag=null; if(!d||!d.on){ dragClear(); return false; } const tg=dropAt(e.clientX,e.clientY); dragClear(); if(!tg) return true;
+  const sc=SC(); pushUndo();
+  if(d.src){ if(d.src.i===tg.i&&d.src.h===tg.h) return true; const a=getSlot(sc,d.src.i,d.src.h), b=getSlot(sc,tg.i,tg.h); setSlot(sc,tg.i,tg.h,a); setSlot(sc,d.src.i,d.src.h,b); }
+  else setSlot(sc,tg.i,tg.h,d.ref);
+  if(tg.i>=sc.len){ sc.len=tg.i+1; $('glen').value=sc.len; }
+  selSlot=tg.i; selHalf=tg.h; curChordKey=null; renderGrille(); save(); return true; }
+{ const gr=$('grille');
+  gr.addEventListener('pointerdown',e=>{ const tg=dropAt(e.clientX,e.clientY); if(!tg) return; const r=getSlot(SC(),tg.i,tg.h); if(!r) return;
+    dragStart(e,{src:tg,label:resolve(r).name,pid:e.pointerId}); });
+  gr.addEventListener('pointermove',dragMove);
+  gr.addEventListener('pointerup',e=>{ if(dragEnd(e)){ noClick=true; setTimeout(()=>{ noClick=false; },60); } });
+  gr.addEventListener('pointercancel',()=>{ drag=null; dragClear(); });
+  // après un glisser, on ignore le « clic » qui suit
+  gr.addEventListener('click',e=>{ if(noClick){ noClick=false; e.stopPropagation(); e.preventDefault(); } },true); }
 
 /* --- basse --- */
 Object.entries(BASS_PRESETS).forEach(([k,o])=>$('bpreset').add(new Option(o.nom,k)));
