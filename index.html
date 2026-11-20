@@ -228,6 +228,7 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
     <select id="style" aria-label="Style de la scène"><option value="">Style de la scène…</option></select>
     <span class="mchips" id="mchips"></span>
     <button class="mchip" id="midichip" style="--c:var(--muted)" title="Clavier MIDI">🎹 MIDI</button>
+    <button class="mchip" id="lightchip" style="--c:var(--mx);display:none" title="Mode léger activé">🪶 Léger</button>
   </div>
   <nav class="tabs" id="tabs"></nav>
 </header>
@@ -371,6 +372,15 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
       <p>Les effets sont en <b>insert</b> : tout le son de l'instrument les traverse, dans l'ordre saturation → phaser → flanger → chorus → trémolo → delay. La <b>réverb</b>, elle, est en <b>envoi</b> : on envoie une partie du son de chaque instrument dans une seule réverb commune, comme dans un studio.</p>
     </details>
   </div>
+  <div class="panel" id="perfpanel"><h2>Mode léger <select id="lightsel" aria-label="Mode léger"><option value="auto">Automatique</option><option value="on">Toujours activé</option><option value="off">Toujours désactivé</option></select></h2>
+    <p class="gdesc" id="lighthint"></p>
+    <details class="help"><summary>Ce qui consomme le plus</summary>
+      <p><b>Les effets</b> : chaque instrument a sa chaîne de 6 effets. Un effet éteint est maintenant débranché et ne coûte plus rien : n'allume que ceux qui servent.</p>
+      <p><b>La réverb</b> (calcul par convolution) : elle ne tourne que si un instrument y envoie du son. En mode léger, sa queue est plus courte.</p>
+      <p><b>Les sons d'accords à plusieurs oscillateurs</b> (Nappe, Orgue), surtout avec des accords à 5 sons : plus lourds que le piano électrique.</p>
+      <p><b>L'affichage pendant la lecture</b> (tête de lecture, vu-mètres). En mode léger, les vu-mètres sont rafraîchis moins souvent.</p>
+      <p>En mode léger, l'appli prépare aussi le son plus en avance et demande au navigateur une mémoire tampon audio plus grande : les petites coupures (« glitches ») disparaissent, au prix d'une très légère latence quand on joue sur les pads.</p>
+    </details></div>
   <div class="panel"><h2>Morceau</h2>
     <div class="row"><button class="btn danger" id="newSong">Nouveau morceau</button><span class="gdesc" style="margin:0">Le morceau est enregistré automatiquement dans cet appareil.</span></div></div>
 </section>
@@ -382,7 +392,12 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
 /* ======================================================================
    AUDIO DE BASE
    ====================================================================== */
-const AC = new (window.AudioContext||window.webkitAudioContext)();
+// Mode léger : moins de calculs (audio et affichage) pour les téléphones et tablettes.
+// 'auto' = activé sur les écrans tactiles sans souris et les appareils modestes.
+let LIGHT_PREF='auto'; try{ LIGHT_PREF=localStorage.getItem('groovebox-leger')||'auto'; }catch(e){}
+const LIGHT_AUTO=(matchMedia('(pointer:coarse)').matches&&!matchMedia('(any-pointer:fine)').matches)||(navigator.hardwareConcurrency||8)<=2||(navigator.deviceMemory||8)<=2;
+const LIGHT = LIGHT_PREF==='on' || (LIGHT_PREF==='auto' && LIGHT_AUTO);
+let AC; try{ AC=new (window.AudioContext||window.webkitAudioContext)(LIGHT?{latencyHint:'playback'}:{latencyHint:'interactive'}); }catch(e){ AC=new (window.AudioContext||window.webkitAudioContext)(); }
 const ctx = AC;
 const G = v => { const g=ctx.createGain(); g.gain.value=v; return g; };
 const mtof = m => 440*Math.pow(2,(m-69)/12);
@@ -911,52 +926,69 @@ const SC = () => SONG.scenes[SONG.cur];
 const masterG=G(SONG.mix.master), comp=ctx.createDynamicsCompressor();
 comp.threshold.value=-9; comp.knee.value=6; comp.ratio.value=5; comp.attack.value=.003; comp.release.value=.2;
 const revIn=G(1), conv=ctx.createConvolver();
-(function(){ const len=ctx.sampleRate*2.4, b=ctx.createBuffer(2,len,ctx.sampleRate); for(let c=0;c<2;c++){ const d=b.getChannelData(c); for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,3.4); } conv.buffer=b; })();
-revIn.connect(conv).connect(masterG); masterG.connect(comp).connect(ctx.destination);
+(function(){ const len=ctx.sampleRate*(LIGHT?1.3:2.4), b=ctx.createBuffer(2,len,ctx.sampleRate); for(let c=0;c<2;c++){ const d=b.getChannelData(c); for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,3.4); } conv.buffer=b; })();
+conv.connect(masterG); let revOn=false; // la réverb n'est branchée que si un instrument y envoie du son masterG.connect(comp).connect(ctx.destination);
 const panner = v => { if(ctx.createStereoPanner){ const p=ctx.createStereoPanner(); p.pan.value=v; return p; } return G(1); };
 const lfoOsc = f => { const o=ctx.createOscillator(); o.frequency.value=f; o.start(); return o; };
 function satCurve(drive){ const k=1+drive*40, n=2048, c=new Float32Array(n), t=Math.tanh(k); for(let i=0;i<n;i++){ const x=i*2/(n-1)-1; c[i]=Math.tanh(k*x)/t; } return {c,post:Math.min(1,.28+1.2/k)}; }
 function makeRack(){
-  const inp=G(1);
-  const satDry=G(1), shaper=ctx.createWaveShaper(), satPost=G(1), satWet=G(0), satOut=G(1); shaper.oversample='4x';
-  inp.connect(satDry).connect(satOut); inp.connect(shaper).connect(satPost).connect(satWet).connect(satOut);
-  const phDry=G(1), phWet=G(0), phOut=G(1), phSum=G(1), phFb=G(0), phFbD=ctx.createDelay(.01), phLfo=lfoOsc(.4), phAmt=G(0);
-  phFbD.delayTime.value=0; satOut.connect(phDry).connect(phOut); satOut.connect(phSum);
-  let prev=phSum; [250,500,900,1500,2400,3800].forEach(f=>{ const ap=ctx.createBiquadFilter(); ap.type='allpass'; ap.frequency.value=f; ap.Q.value=.6; phAmt.connect(ap.detune); prev.connect(ap); prev=ap; });
-  phLfo.connect(phAmt); prev.connect(phWet).connect(phOut); prev.connect(phFb).connect(phFbD).connect(phSum);
-  const flDry=G(1), flWet=G(0), flOut=G(1), flD=ctx.createDelay(.05), flFb=G(0), flLfo=lfoOsc(.25), flAmt=G(0);
-  flD.delayTime.value=.004; phOut.connect(flDry).connect(flOut); phOut.connect(flD); flD.connect(flFb).connect(flD); flD.connect(flWet).connect(flOut); flLfo.connect(flAmt).connect(flD.delayTime);
-  const chDry=G(1), chWet=G(0), chOut=G(1), dL=ctx.createDelay(.1), dR=ctx.createDelay(.1), chLfo=lfoOsc(.6), lL=G(.003), lR=G(-.003);
-  dL.delayTime.value=.015; dR.delayTime.value=.015; chLfo.connect(lL).connect(dL.delayTime); chLfo.connect(lR).connect(dR.delayTime);
-  flOut.connect(chDry).connect(chOut); flOut.connect(dL).connect(panner(-.85)).connect(chWet); flOut.connect(dR).connect(panner(.85)).connect(chWet); chWet.connect(chOut);
-  const tr=G(1), trLfo=lfoOsc(5), trAmt=G(0); chOut.connect(tr); trLfo.connect(trAmt).connect(tr.gain);
-  const dlDry=G(1), dlWet=G(0), dlOut=G(1), dl=ctx.createDelay(2), dlFb=G(.35), dlTone=ctx.createBiquadFilter(); dlTone.type='lowpass'; dlTone.frequency.value=4500;
-  tr.connect(dlDry).connect(dlOut); tr.connect(dl); dl.connect(dlTone); dlTone.connect(dlFb).connect(dl); dlTone.connect(dlWet).connect(dlOut);
+  // Chaque effet est un « étage » autonome. Un étage éteint est débranché de la chaîne :
+  // ses nœuds (filtres, LFO, lignes à retard) ne sont alors plus calculés du tout.
+  const inp=G(1), out=G(1), S={};
+  { const i=G(1), satDry=G(1), shaper=ctx.createWaveShaper(), satPost=G(1), satWet=G(0), o=G(1); shaper.oversample=LIGHT?'none':'4x';
+    i.connect(satDry).connect(o); i.connect(shaper).connect(satPost).connect(satWet).connect(o); S.sat={i,o,tail:.05,shaper,satDry,satPost,satWet}; }
+  { const i=G(1), phDry=G(1), phWet=G(0), o=G(1), phSum=G(1), phFb=G(0), phFbD=ctx.createDelay(.01), phLfo=lfoOsc(.4), phAmt=G(0);
+    phFbD.delayTime.value=0; i.connect(phDry).connect(o); i.connect(phSum);
+    let prev=phSum; [250,500,900,1500,2400,3800].forEach(f=>{ const ap=ctx.createBiquadFilter(); ap.type='allpass'; ap.frequency.value=f; ap.Q.value=.6; phAmt.connect(ap.detune); prev.connect(ap); prev=ap; });
+    phLfo.connect(phAmt); prev.connect(phWet).connect(o); prev.connect(phFb).connect(phFbD).connect(phSum); S.phaser={i,o,tail:.1,phDry,phWet,phFb,phLfo,phAmt}; }
+  { const i=G(1), flDry=G(1), flWet=G(0), o=G(1), flD=ctx.createDelay(.05), flFb=G(0), flLfo=lfoOsc(.25), flAmt=G(0);
+    flD.delayTime.value=.004; i.connect(flDry).connect(o); i.connect(flD); flD.connect(flFb).connect(flD); flD.connect(flWet).connect(o); flLfo.connect(flAmt).connect(flD.delayTime);
+    S.flanger={i,o,tail:.15,flDry,flWet,flFb,flLfo,flAmt}; }
+  { const i=G(1), chDry=G(1), chWet=G(0), o=G(1), dL=ctx.createDelay(.1), dR=ctx.createDelay(.1), chLfo=lfoOsc(.6), lL=G(.003), lR=G(-.003);
+    dL.delayTime.value=.015; dR.delayTime.value=.015; chLfo.connect(lL).connect(dL.delayTime); chLfo.connect(lR).connect(dR.delayTime);
+    i.connect(chDry).connect(o); i.connect(dL).connect(panner(-.85)).connect(chWet); i.connect(dR).connect(panner(.85)).connect(chWet); chWet.connect(o);
+    S.chorus={i,o,tail:.1,chDry,chWet,chLfo,lL,lR}; }
+  { const i=G(1), trLfo=lfoOsc(5), trAmt=G(0); trLfo.connect(trAmt).connect(i.gain); S.trem={i,o:i,tail:.05,trLfo,trAmt}; }
+  { const i=G(1), dlDry=G(1), dlWet=G(0), o=G(1), dl=ctx.createDelay(2), dlFb=G(.35), dlTone=ctx.createBiquadFilter(); dlTone.type='lowpass'; dlTone.frequency.value=4500;
+    i.connect(dlDry).connect(o); i.connect(dl); dl.connect(dlTone); dlTone.connect(dlFb).connect(dl); dlTone.connect(dlWet).connect(o); S.delay={i,o,tail:2.5,dl,dlDry,dlWet,dlFb}; }
+  const ORDER=['sat','phaser','flanger','chorus','trem','delay'], live={}, timers={};
+  let wired=null;
+  function rewire(){ const act=ORDER.filter(k=>live[k]), key=act.join(); if(key===wired) return; wired=key;
+    inp.disconnect(); ORDER.forEach(k=>{ try{ S[k].o.disconnect(); }catch(e){} });
+    let prev=inp; act.forEach(k=>{ prev.connect(S[k].i); prev=S[k].o; }); prev.connect(out); }
   let lastDrive=-1;
   function update(F){
     const now=ctx.currentTime, s=(p,v)=>p.setTargetAtTime(v,now,.02);
-    if(F.sat.drive!==lastDrive){ const {c,post}=satCurve(F.sat.drive); shaper.curve=c; s(satPost.gain,post); lastDrive=F.sat.drive; }
-    s(satDry.gain,F.sat.on?1-F.sat.mix:1); s(satWet.gain,F.sat.on?F.sat.mix:0);
-    s(phLfo.frequency,F.phaser.rate); s(phAmt.gain,F.phaser.depth*2400); s(phFb.gain,F.phaser.on?F.phaser.fb*.85:0); s(phWet.gain,F.phaser.on?.7:0); s(phDry.gain,F.phaser.on?.7:1);
-    s(flLfo.frequency,F.flanger.rate); s(flAmt.gain,F.flanger.depth*.0035); s(flFb.gain,F.flanger.on?F.flanger.fb*.9:0); s(flWet.gain,F.flanger.on?.7:0); s(flDry.gain,F.flanger.on?.7:1);
-    s(chLfo.frequency,F.chorus.rate); s(lL.gain,F.chorus.depth*.006); s(lR.gain,-F.chorus.depth*.006); s(chWet.gain,F.chorus.on?F.chorus.mix:0); s(chDry.gain,F.chorus.on?1-F.chorus.mix*.4:1);
-    const td=F.trem.on?F.trem.depth*.5:0; s(trLfo.frequency,F.trem.rate); s(tr.gain,1-td); s(trAmt.gain,td);
-    const beat=60/SONG.bpm, dt=F.delay.sync==='c8'?beat/2:F.delay.sync==='c8d'?beat*.75:F.delay.sync==='c4'?beat:F.delay.time;
-    dl.delayTime.setTargetAtTime(Math.min(1.9,dt),now,.05); s(dlFb.gain,F.delay.fb); s(dlWet.gain,F.delay.on?F.delay.mix:0);
+    ORDER.forEach(k=>{ const on=!!F[k].on;
+      if(on){ clearTimeout(timers[k]); timers[k]=null; live[k]=true; }
+      // on laisse finir le son de l'effet (fondu, répétitions du delay) avant de le débrancher
+      else if(live[k]&&!timers[k]) timers[k]=setTimeout(()=>{ timers[k]=null; if(!F[k].on){ live[k]=false; rewire(); } },S[k].tail*1000+60); });
+    rewire();
+    const A=S.sat; if(F.sat.drive!==lastDrive){ const {c,post}=satCurve(F.sat.drive); A.shaper.curve=c; s(A.satPost.gain,post); lastDrive=F.sat.drive; }
+    s(A.satDry.gain,F.sat.on?1-F.sat.mix:1); s(A.satWet.gain,F.sat.on?F.sat.mix:0);
+    const P=S.phaser; s(P.phLfo.frequency,F.phaser.rate); s(P.phAmt.gain,F.phaser.depth*2400); s(P.phFb.gain,F.phaser.on?F.phaser.fb*.85:0); s(P.phWet.gain,F.phaser.on?.7:0); s(P.phDry.gain,F.phaser.on?.7:1);
+    const Fl=S.flanger; s(Fl.flLfo.frequency,F.flanger.rate); s(Fl.flAmt.gain,F.flanger.depth*.0035); s(Fl.flFb.gain,F.flanger.on?F.flanger.fb*.9:0); s(Fl.flWet.gain,F.flanger.on?.7:0); s(Fl.flDry.gain,F.flanger.on?.7:1);
+    const C=S.chorus; s(C.chLfo.frequency,F.chorus.rate); s(C.lL.gain,F.chorus.depth*.006); s(C.lR.gain,-F.chorus.depth*.006); s(C.chWet.gain,F.chorus.on?F.chorus.mix:0); s(C.chDry.gain,F.chorus.on?1-F.chorus.mix*.4:1);
+    const T=S.trem, td=F.trem.on?F.trem.depth*.5:0; s(T.trLfo.frequency,F.trem.rate); s(T.i.gain,1-td); s(T.trAmt.gain,td);
+    const D=S.delay, beat=60/SONG.bpm, dt=F.delay.sync==='c8'?beat/2:F.delay.sync==='c8d'?beat*.75:F.delay.sync==='c4'?beat:F.delay.time;
+    D.dl.delayTime.setTargetAtTime(Math.min(1.9,dt),now,.05); s(D.dlFb.gain,F.delay.fb); s(D.dlWet.gain,F.delay.on?F.delay.mix:0);
   }
-  return {inp, out:dlOut, update};
+  rewire();
+  return {inp, out, update};
 }
 const CHN = {drums:{nom:'Batterie',c:'var(--dr)'}, chords:{nom:'Accords',c:'var(--ch)'}, bass:{nom:'Basse',c:'var(--ba)'}, synth:{nom:'Synthé',c:'var(--sy)'}};
 const CH = {};
 Object.keys(CHN).forEach(k=>{ const inp=G(1), rack=makeRack(), fader=G(1), mute=G(1), send=G(0), an=ctx.createAnalyser(); an.fftSize=512;
-  inp.connect(rack.inp); rack.out.connect(fader).connect(mute); mute.connect(masterG); mute.connect(send).connect(revIn); mute.connect(an);
+  inp.connect(rack.inp); rack.out.connect(fader).connect(mute); mute.connect(masterG); mute.connect(send).connect(revIn);
   CH[k]={inp,rack,fader,mute,send,an,buf:new Float32Array(512)}; });
 function applyMix(){
   const M=SONG.mix, any=Object.keys(CHN).some(k=>M[k].solo), now=ctx.currentTime;
   Object.keys(CHN).forEach(k=>{ const m=M[k]; CH[k].fader.gain.setTargetAtTime(m.vol,now,.02);
     CH[k].mute.gain.setTargetAtTime((m.mute||(any&&!m.solo))?0:1,now,.01); CH[k].send.gain.setTargetAtTime(m.rev,now,.03); });
   masterG.gain.setTargetAtTime(M.master,now,.02);
+  const rv=Object.keys(CHN).some(k=>M[k].rev>0); if(rv!==revOn){ revOn=rv; if(rv) revIn.connect(conv); else setTimeout(()=>{ if(!revOn) try{ revIn.disconnect(conv); }catch(e){} },2600); }
 }
+let metersOn=false; function setMeters(on){ if(on===metersOn) return; metersOn=on; Object.keys(CHN).forEach(k=>{ try{ on?CH[k].mute.connect(CH[k].an):CH[k].mute.disconnect(CH[k].an); }catch(e){} }); }
 const updateFX = () => Object.keys(CHN).forEach(k=>CH[k].rack.update(SONG.fx[k]));
 
 /* ======================================================================
@@ -1030,7 +1062,10 @@ function voicing(pcs){
    ====================================================================== */
 const B={o:ctx.createOscillator(), sub:ctx.createOscillator(), sg:G(SONG.bass.sub), f:ctx.createBiquadFilter(), v:G(0), last:0, held:false};
 B.o.type=SONG.bass.wave; B.sub.type='square'; B.f.type='lowpass';
-B.o.connect(B.f); B.sub.connect(B.sg).connect(B.f); B.f.connect(B.v).connect(CH.bass.inp); B.o.start(); B.sub.start();
+B.o.connect(B.f); B.sub.connect(B.sg).connect(B.f); B.v.connect(CH.bass.inp); B.o.start(); B.sub.start();
+// les oscillateurs de la basse synthé ne sont branchés (donc calculés) que si on utilise ce son
+let bWired=false; function bWire(on){ if(on===bWired) return; bWired=on; try{ on?B.f.connect(B.v):B.f.disconnect(B.v); }catch(e){} }
+bWire(true);
 // Basses enregistrées (mêmes sons que la Boîte à outils basse) : on prend l'échantillon le plus proche et on le transpose.
 const BSAMP={eb:{dir:'basse-electrique',notes:[28,31,34,37,40,43,46,49,52],gain:.95,buf:{}}, cb:{dir:'contrebasse',notes:[28,30,31,34,36,38,40,42,44,45,49,52,56],gain:1.15,buf:{}}};
 let BV=null; // note enregistrée en cours (la basse reste monophonique)
@@ -1046,6 +1081,7 @@ function sampleBass(midi,t,acc,legato,dur,closeGate){ const S=BSAMP[SONG.bass.so
   return true; }
 function bassNote(midi,t,acc,legato,dur,closeGate){
   if(SONG.bass.sound!=='synth'&&BSAMP[SONG.bass.sound]){ loadBassSamples(SONG.bass.sound); if(sampleBass(midi,t,acc,legato,dur,closeGate)) return; }
+  bWire(true);
   const P=SONG.bass, fr=mtof(midi);
   if(legato){ if(fr!==B.last){ [[B.o,fr],[B.sub,fr/2]].forEach(([o,f])=>{ o.frequency.cancelScheduledValues(t); o.frequency.setValueAtTime(o===B.o?B.last:B.last/2,t); o.frequency.exponentialRampToValueAtTime(f,t+P.glide); }); } }
   else {
@@ -1128,13 +1164,13 @@ function schedStep(s,barI,t){
   vq.push({t,s,bar:barI,ch,notes:curNotes});
 }
 function tick(){
-  while(nextT<ctx.currentTime+.12){
+  while(nextT<ctx.currentTime+(LIGHT?.3:.12)){
     if(step===0&&queued!=null){ SONG.cur=queued; queued=null; bar=0; renderScene(); save(); }
     schedStep(step,bar,nextT+swingOff(step));
     nextT+=sdur(); step++; if(step===16){ step=0; bar++; }
   }
 }
-function start(){ audioOn(); if(playing) return; playing=true; step=0; bar=0; arpI=0; curChordKey=null; nextT=ctx.currentTime+.06; B.held=false; tick(); timer=setInterval(tick,25); $('play').classList.add('on'); $('play').textContent='■'; $('fab').classList.add('on'); $('fab').textContent='■'; }
+function start(){ audioOn(); if(playing) return; playing=true; step=0; bar=0; arpI=0; curChordKey=null; nextT=ctx.currentTime+.06; B.held=false; tick(); timer=setInterval(tick,LIGHT?50:25); $('play').classList.add('on'); $('play').textContent='■'; $('fab').classList.add('on'); $('fab').textContent='■'; }
 function stop(){ playing=false; clearInterval(timer); vq.length=0; queued=null; bassOff(); $('play').classList.remove('on'); $('play').textContent='▶'; $('fab').classList.remove('on'); $('fab').textContent='▶'; paintPh(-1,-1); renderScenes(); }
 let audioStarted=false;
 function audioOn(){ if(ctx.state!=='running') ctx.resume(); if(!audioStarted){ audioStarted=true; $('startnote').style.display='none'; } }
@@ -1194,7 +1230,7 @@ function renderMchips(){ const box=$('mchips'); box.innerHTML='';
 const TABS=[['drums','Batterie','var(--dr)'],['chords','Accords','var(--ch)'],['bass','Basse','var(--ba)'],['synth','Synthé','var(--sy)'],['mix','Mixeur','var(--mx)'],['midi','🎹 MIDI','var(--mx)']];
 let curTab='drums'; try{ curTab=localStorage.getItem('groovebox-onglet')||'drums'; }catch(e){}
 TABS.forEach(([k,n,c])=>{ const b=document.createElement('button'); b.className='tab'; b.textContent=n; b.style.setProperty('--c',c); b.dataset.k=k; b.onclick=()=>showTab(k); $('tabs').appendChild(b); });
-function showTab(k){ curTab=k; document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.k===k)); document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id==='p-'+k)); try{ localStorage.setItem('groovebox-onglet',k); }catch(e){} if(k==='bass'){ const rw=document.querySelector('.rollwrap'); rw.scrollTop=rw.scrollHeight; } }
+function showTab(k){ curTab=k; document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.k===k)); document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id==='p-'+k)); try{ localStorage.setItem('groovebox-onglet',k); }catch(e){} setMeters(k==='mix'); if(k==='bass'){ const rw=document.querySelector('.rollwrap'); rw.scrollTop=rw.scrollHeight; } }
 
 /* --- batterie --- */
 Object.entries(KITS).forEach(([k,o])=>$('kit').add(new Option(o.nom,k)));
@@ -1298,7 +1334,7 @@ let bdur=1; dsel($('bdur'),{d1:'Double croche',d2:'Croche',d3:'Croche pointée',
 function bhint(){ $('bhint').innerHTML={note:'Touche une case pour poser une note de la <b>durée</b> choisie, ou glisse vers la droite pour l\'allonger. Retouche une note pour l\'effacer (ou touche sa fin pour la raccourcir). Touche un nom de note à gauche pour l\'écouter.',acc:'Touche une note pour l\'<b>accentuer</b> (plus forte, filtre plus ouvert).',lig:'Touche une note pour la <b>lier</b> à la précédente : même hauteur = note tenue, autre hauteur = glissando.'}[bedit]; }
 $('bclear').onclick=()=>{ pushUndo(); SC().bass=Array(16).fill(null); renderRoll(); save(); };
 seg($('bwave'),{sawtooth:'Dent de scie',square:'Carré',triangle:'Triangle'},()=>SONG.bass.wave,k=>{ SONG.bass.wave=k; bassParams(); });
-function bsoundUI(){ const syn=SONG.bass.sound==='synth'; $('bwave').style.display=syn?'':'none'; $('bsl').style.display=syn?'':'none';
+function bsoundUI(){ const syn=SONG.bass.sound==='synth'; bWire(syn); $('bwave').style.display=syn?'':'none'; $('bsl').style.display=syn?'':'none';
   $('bsndhint').innerHTML=syn?'Basse de <b>synthé</b> : règle la forme d\'onde et le filtre ci-dessous.':SONG.bass.sound==='cb'?'<b>Contrebasse</b> jouée en pizzicato (cordes pincées) : le son du jazz, de la bossa et du blues acoustique.':'<b>Basse électrique</b> jouée aux doigts : le son du rock, de la pop, du funk et du reggae.';
   if(!syn) loadBassSamples(SONG.bass.sound); }
 dsel($('bsound'),{synth:'Synthé',eb:'Basse électrique',cb:'Contrebasse'},()=>SONG.bass.sound||'synth',k=>{ bvStop(ctx.currentTime); SONG.bass.sound=k; bsoundUI(); });
@@ -1472,26 +1508,31 @@ function renderScene(){ renderScenes(); renderSeq(); renderGrille(); renderRoll(
 function renderAll(){ $('bpm').textContent=SONG.bpm; $('tonic').value=SONG.tonic; $('mode').value=SONG.mode; $('kit').value=SONG.kit; $('borrow').value=SONG.chords.borrow;
 $('clead').checked=SONG.chords.lead; $('svib').checked=SONG.synth.vib;
   renderMchips(); renderChords(); renderScene(); renderStrips(); renderFx(); buildKb(); refreshers.forEach(f=>f()); }
+let phEls=[]; // cases allumées par la tête de lecture : on n'éteint que celles-là (pas de recherche dans toute la page)
 function paintPh(s,barI){
-  document.querySelectorAll('.cell.ph,.rc.ph,.slot.ph,.slot .h.ph').forEach(c=>c.classList.remove('ph'));
-  if(s<0){ const bp=document.getElementById('bsPh'); if(bp) bp.setAttribute('x',-200); const dp=document.getElementById('dsPh'); if(dp) dp.setAttribute('x',-200); return; } seqCells.forEach(r=>r[s]&&r[s].classList.add('ph'));
-  for(let n=ROLL_LO-36;n<=ROLL_HI-36;n++){ const c=rollCells[n+'_'+s]; if(c) c.classList.add('ph'); }
-  if(SONG.chords.src==='grille'){ const el=slotEls[barI%SC().len]; if(el){ el.classList.add('ph'); const hs=el.querySelectorAll('.h'); if(hs.length) hs[s>=8?1:0].classList.add('ph'); } }
+  phEls.forEach(c=>c.classList.remove('ph')); phEls=[]; const add=c=>{ if(c){ c.classList.add('ph'); phEls.push(c); } };
+  if(s<0){ const bp=document.getElementById('bsPh'); if(bp) bp.setAttribute('x',-200); const dp=document.getElementById('dsPh'); if(dp) dp.setAttribute('x',-200); return; }
+  if(curTab==='drums') seqCells.forEach(r=>add(r[s]));
+  if(curTab==='bass') for(let n=ROLL_LO-36;n<=ROLL_HI-36;n++) add(rollCells[n+'_'+s]);
+  if(curTab==='chords'&&SONG.chords.src==='grille'){ const el=slotEls[barI%SC().len]; if(el){ add(el); const hs=el.querySelectorAll('.h'); if(hs.length) add(hs[s>=8?1:0]); } }
   const bp=document.getElementById('bsPh'); if(bp) bp.setAttribute('x',BS_LEFT+s*BS_STEP);
   const dp=document.getElementById('dsPh'); if(dp) dp.setAttribute('x',DS_LEFT+s*DS_STEP);
 }
-let lastS=-1;
+let lastS=-1, synthDrawn='', frameN=0; // les courbes du synthé ne sont redessinées que si un réglage change
 (function loop(){
   while(vq.length&&vq[0].t<=ctx.currentTime){ const q=vq.shift();
     if(q.s!==lastS){ lastS=q.s; if(curTab==='drums'||curTab==='bass'||curTab==='chords') paintPh(q.s,q.bar);
       if(q.s%4===0) document.querySelectorAll('#beat i').forEach((i,k)=>i.classList.toggle('on',k===q.s/4));
       if(q.s===0){ showChord(q.ch,q.notes); renderScenes(); } } }
-  if(curTab==='synth'){ drawFilt($('cvF')); drawEnv($('cvFE'),{a:SONG.synth.fa,d:SONG.synth.fd,s:SONG.synth.fs,r:SONG.synth.fr},'#c792ea','filt'); drawEnv($('cvAE'),{a:SONG.synth.a,d:SONG.synth.d,s:SONG.synth.s,r:SONG.synth.r},'#7bd389','amp'); }
-  if(curTab==='mix'){ Object.keys(CHN).forEach(k=>{ const c=CH[k]; c.an.getFloatTimeDomainData(c.buf); let p=0; for(let i=0;i<c.buf.length;i+=2) p=Math.max(p,Math.abs(c.buf[i])); if(meterEls[k]) meterEls[k].style.width=Math.min(100,p*130)+'%'; });
+  if(curTab==='synth'){ const key=JSON.stringify(SONG.synth)+$('cvF').clientWidth; if(key!==synthDrawn){ synthDrawn=key; drawFilt($('cvF')); drawEnv($('cvFE'),{a:SONG.synth.fa,d:SONG.synth.fd,s:SONG.synth.fs,r:SONG.synth.fr},'#c792ea','filt'); drawEnv($('cvAE'),{a:SONG.synth.a,d:SONG.synth.d,s:SONG.synth.s,r:SONG.synth.r},'#7bd389','amp'); } } else synthDrawn='';
+  if(curTab==='mix'&&(!LIGHT||++frameN%3===0)){ Object.keys(CHN).forEach(k=>{ const c=CH[k]; c.an.getFloatTimeDomainData(c.buf); let p=0; for(let i=0;i<c.buf.length;i+=2) p=Math.max(p,Math.abs(c.buf[i])); if(meterEls[k]) meterEls[k].style.width=Math.min(100,p*130)+'%'; });
     if(meterEls.master){ const p=Math.max(...Object.keys(CHN).map(k=>parseFloat(meterEls[k].style.width)||0)); meterEls.master.style.width=p+'%'; } }
   requestAnimationFrame(loop);
 })();
 
+$('lightchip').style.display=LIGHT?'':'none'; $('lightchip').onclick=()=>{ showTab('mix'); $('perfpanel').scrollIntoView({behavior:'smooth'}); };
+$('lightsel').value=LIGHT_PREF; $('lighthint').innerHTML=(LIGHT?'Le mode léger est <b>activé</b> sur cet appareil.':'Le mode léger est <b>désactivé</b> sur cet appareil.')+' En automatique, il s\'active sur les téléphones, les tablettes et les ordinateurs modestes. Il allège les calculs pour éviter les craquements et les coupures du son. Changer ce réglage recharge l\'appli (le morceau est conservé).';
+$('lightsel').onchange=e=>{ try{ localStorage.setItem('groovebox-leger',e.target.value); localStorage.setItem('groovebox-morceau',JSON.stringify(SONG)); }catch(_){} location.reload(); };
 applyMix(); updateFX(); bassParams(); synthVibUpdate(); renderAll(); showTab(curTab); bhint(); showChord(null);
 
 
