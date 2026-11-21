@@ -106,6 +106,8 @@ details.help b{color:var(--text)}
 .slot.bor .rn{color:var(--bor)}
 .slot.sel{box-shadow:0 0 0 2px var(--mx) inset}
 .slot.ph{background:color-mix(in srgb,var(--ch) 30%,var(--panel2))}
+.mididrag{display:inline-flex;align-items:center;gap:6px;background:color-mix(in srgb,var(--mx) 14%,var(--panel2));border:1px solid var(--mx);color:var(--mx);border-radius:9px;padding:7px 12px;font-size:14px;font-weight:600;cursor:grab;user-select:none;-webkit-user-select:none}
+@media (hover:none){.mididrag{display:none}}
 .dragghost{position:fixed;left:0;top:0;pointer-events:none;z-index:95;padding:7px 12px;border-radius:10px;background:color-mix(in srgb,var(--ch) 35%,var(--panel));border:1px solid var(--ch);color:var(--text);font-weight:700;font-size:16px;box-shadow:0 6px 18px #0008;transform:translate(-50%,-130%);white-space:nowrap}
 #grille .slot{touch-action:none}
 #grille.dragging .slot:not(.off){border-color:color-mix(in srgb,var(--mx) 60%,var(--line))}
@@ -392,7 +394,12 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
       <p>En mode léger, l'appli prépare aussi le son plus en avance : les petites coupures (« glitches ») disparaissent quand l'appareil est occupé.</p>
     </details></div>
   <div class="panel"><h2>Morceau</h2>
-    <div class="row"><button class="btn danger" id="newSong">Nouveau morceau</button><span class="gdesc" style="margin:0">Le morceau est enregistré automatiquement dans cet appareil.</span></div></div>
+    <div class="row"><button class="btn danger" id="newSong">Nouveau morceau</button><span class="gdesc" style="margin:0">Le morceau est enregistré automatiquement dans cet appareil.</span></div>
+    <div class="row"><button class="btn" id="songSave">💾 Enregistrer le morceau</button><button class="btn" id="songOpen">📂 Ouvrir un morceau</button><input type="file" id="songFile" accept=".groovebox,.json,application/json" hidden></div>
+    <p class="gdesc">Le fichier <b>.groovebox</b> contient tout le morceau (scènes, grille, batterie, basse, sons, mixage) : garde-le, envoie-le à un élève ou rouvre-le sur un autre appareil.</p>
+    <h2 style="margin-top:14px">Exporter en MIDI</h2>
+    <div class="row"><span class="mididrag" id="midiDrag" draggable="true" title="Fais glisser ce bouton sur l'écran de Cubase ou de Reason">⇩ Glisser la scène vers Cubase / Reason</span><button class="btn" id="midiSave">Télécharger le fichier MIDI</button></div>
+    <p class="gdesc" id="midiHint">Fichier MIDI de la scène en cours (une fois la grille, au tempo choisi) en 3 pistes : <b>batterie</b> (canal 10, sons General MIDI), <b>basse</b> et <b>accords</b>, avec le nom des accords en repères.</p></div>
 </section>
 </main>
 <button class="fab" id="fab" aria-label="Lecture / arrêt">▶</button>
@@ -1025,7 +1032,7 @@ function loadSamples(){
       .then(b=>{ BUF[s.file]=b; }).catch(()=>{ BUF[s.file]=null; }); }));
 }
 loadSamples();
-function drumHit(i,t,vel){ return VOICES[SONG.kit][SND[i].id](ctx, CH.drums.inp, t, SP[i], vel, SD(i,SONG.kit)); }
+function drumHit(i,t,vel){ if(CAP){ CAP.dr.push({t,n:GMDR[SND[i].id]||38,v:Math.max(1,Math.round(vel*112))}); return; } return VOICES[SONG.kit][SND[i].id](ctx, CH.drums.inp, t, SP[i], vel, SD(i,SONG.kit)); }
 
 /* ======================================================================
    ACCORDS : sons
@@ -1068,8 +1075,10 @@ const CPAT = {
   arp2:{n:'Arpège montant-descendant', f:(s,t,sd,N)=>{ if(s%2===0){ const q=N.concat(N.slice(1,-1).reverse()); chit([q[arpI%q.length]],t,sd*1.8); arpI++; } }},
 };
 let arpI=0;
-function chit(ms,t,dur,v=1){ const S=CSOUNDS[SONG.chords.sound]; ms.forEach(m=>S.make(m,t,v,CH.chords.inp).release(t+dur)); }
+function chit(ms,t,dur,v=1){ if(CAP){ ms.forEach(m=>CAP.ch.push({t,end:t+dur,n:m,v:Math.max(1,Math.round(v*92))})); return; } const S=CSOUNDS[SONG.chords.sound]; ms.forEach(m=>S.make(m,t,v,CH.chords.inp).release(t+dur)); }
 let lastVoicing=null;
+// Export MIDI : pendant la capture (CAP), la batterie, les accords et la basse notent leurs notes au lieu de jouer
+let CAP=null; const GMDR={kick:36,snare:38,rim:37,clap:39,hhc:42,hho:46,tomh:50,toml:45,crash:49,bell:53,ride:51,hhp:44};
 function stack(pcs,lo){ const v=[lo]; let p=lo; for(let k=1;k<pcs.length;k++){ let m=p+((pcs[k]-p)%12+12)%12; if(m===p)m+=12; v.push(m); p=m; } return v; }
 function dist(a,b){ let s=0; a.forEach(x=>s+=Math.min(...b.map(y=>Math.abs(x-y)))); b.forEach(y=>s+=Math.min(...a.map(x=>Math.abs(x-y)))); return s; }
 function voicing(pcs){
@@ -1104,6 +1113,7 @@ function sampleBass(midi,t,acc,legato,dur,closeGate){ const S=BSAMP[SONG.bass.so
   if(closeGate&&BV){ BV.g.gain.setTargetAtTime(0,t+dur,.03); }
   return true; }
 function bassNote(midi,t,acc,legato,dur,closeGate){
+  if(CAP){ let o=CAP.bo; if(!(legato&&o&&o.n===midi)){ if(o&&o.end==null) o.end=t; o={n:midi,t,v:acc?115:92,end:null}; CAP.bs.push(o); } CAP.bo=o; if(closeGate){ o.end=t+dur; CAP.bo=null; } return; }
   if(SONG.bass.sound!=='synth'&&BSAMP[SONG.bass.sound]){ loadBassSamples(SONG.bass.sound); if(sampleBass(midi,t,acc,legato,dur,closeGate)) return; }
   bWire(true);
   const P=SONG.bass, fr=mtof(midi);
@@ -1604,6 +1614,38 @@ let lastS=-1, synthDrawn='', frameN=0; // les courbes du synthé ne sont redessi
   requestAnimationFrame(loop);
 })();
 
+// ---- Export MIDI de la scène (même principe que les Pads d'accords) ----
+const asciiN=s=>s.replace(/𝄫/g,'bb').replace(/𝄪/g,'x').replace(/♭/g,'b').replace(/♯/g,'#').replace(/°/g,'o').replace(/ø/g,'m7b5').replace(/[^\x20-\x7e]/g,'');
+function captureScene(){ const sc=SC(), sd=sdur(), keep={ck:curChordKey,cn:curNotes,lv:lastVoicing,bh:B.held,ai:arpI,vq:vq.length,src:SONG.chords.src};
+  CAP={dr:[],ch:[],bs:[],bo:null}; curChordKey=null; B.held=false; arpI=0; SONG.chords.src='grille'; const marks=[]; let lastName='';
+  try{ for(let b=0;b<sc.len;b++) for(let s=0;s<16;s++){ const t=(b*16+s)*sd+swingOff(s); schedStep(s,b,t);
+      const ch=resolve(chordRefAt(b,s)); if(ch&&(s===0||s===8)&&(ch.name!==lastName||s===0)){ if(ch.name!==lastName||s===0) marks.push({t:(b*16+s)*sd,txt:ch.name}); lastName=ch.name; } } }
+  finally{ const C=CAP; CAP=null; if(C.bo&&C.bo.end==null) C.bo.end=sc.len*16*sd; curChordKey=keep.ck; curNotes=keep.cn; lastVoicing=keep.lv; B.held=keep.bh; arpI=keep.ai; vq.length=keep.vq; SONG.chords.src=keep.src; C.marks=marks; C.len=sc.len*16*sd; return C; } }
+function sceneMidi(){ const C=captureScene(), tpq=480, beat=60/SONG.bpm, tk=s=>Math.max(0,Math.round(s/beat*tpq));
+  const vlq=n=>{ const b=[n&0x7f]; while((n>>=7)>0) b.unshift((n&0x7f)|0x80); return b; };
+  const txt=(type,s)=>{ s=asciiN(s); return [0xFF,type].concat(vlq(s.length),[...s].map(c=>c.charCodeAt(0))); };
+  const track=(name,ch,prog,notes,extra=[])=>{ const ev=[{t:0,p:0,d:txt(0x03,name)}]; if(prog!=null) ev.push({t:0,p:0,d:[0xC0|ch,prog]}); extra.forEach(e=>ev.push(e));
+    notes.forEach(n=>{ const a=tk(n.t), b=Math.max(a+1,tk(n.end!=null?n.end:n.t+.08)); ev.push({t:a,p:2,d:[0x90|ch,n.n,n.v]}); ev.push({t:b,p:1,d:[0x80|ch,n.n,0]}); });
+    ev.sort((x,y)=>x.t-y.t||x.p-y.p); const out=[]; let last=0; ev.forEach(e=>{ out.push(...vlq(e.t-last),...e.d); last=e.t; }); out.push(...vlq(Math.max(0,tk(C.len)-last)),0xFF,0x2F,0x00); return out; };
+  const us=Math.round(60000000/SONG.bpm), sc=SC();
+  const t0=track('Groovebox - scene '+'ABCD'[SONG.cur],0,null,[],[{t:0,p:0,d:[0xFF,0x51,0x03,(us>>16)&255,(us>>8)&255,us&255]},{t:0,p:0,d:[0xFF,0x58,0x04,4,2,24,8]}].concat(C.marks.map(m=>({t:tk(m.t),p:0,d:txt(0x06,m.txt)}))));
+  const bprog={synth:38,eb:33,cb:32}[SONG.bass.sound]||33, cprog={ep:4,org:16,pad:89,pluck:84}[SONG.chords.sound]||4;
+  const trks=[t0, track('Batterie',9,null,C.dr), track('Basse',1,bprog,C.bs), track('Accords',0,cprog,C.ch)];
+  const u32=n=>[(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255], bytes=[0x4D,0x54,0x68,0x64,0,0,0,6,0,1,0,trks.length,(tpq>>8)&255,tpq&255];
+  trks.forEach(tr=>bytes.push(0x4D,0x54,0x72,0x6B,...u32(tr.length),...tr)); return new Uint8Array(bytes); }
+const midiName=()=>'groovebox-scene-'+'ABCD'[SONG.cur]+'-'+asciiN(TONICS[SONG.tonic][0]).replace(/[^\w#]/g,'')+'-'+SONG.bpm+'bpm.mid';
+const sceneEmpty=()=>{ const sc=SC(); if(sc.drums.flat().some(Boolean)||sc.bass.some(Boolean)||sc.bars.some(Boolean)) return false; $('midiHint').textContent='La scène est vide : écris d\'abord de la batterie, une basse ou une grille.'; return true; };
+function download(name,blob){ const url=URL.createObjectURL(blob), a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),2000); }
+$('midiSave').onclick=()=>{ if(!sceneEmpty()) download(midiName(),new Blob([sceneMidi()],{type:'audio/midi'})); };
+$('midiDrag').addEventListener('dragstart',e=>{ if(sceneEmpty()){ e.preventDefault(); return; } const b=sceneMidi(); let s=''; b.forEach(x=>s+=String.fromCharCode(x));
+  e.dataTransfer.effectAllowed='copy'; e.dataTransfer.setData('DownloadURL','audio/midi:'+midiName()+':data:audio/midi;base64,'+btoa(s)); });
+// ---- Enregistrer / ouvrir le morceau complet (fichier .groovebox) ----
+$('songSave').onclick=()=>{ const d=new Date(), nm='morceau-'+d.toISOString().slice(0,10)+'-'+String(d.getHours()).padStart(2,'0')+'h'+String(d.getMinutes()).padStart(2,'0')+'.groovebox';
+  download(nm,new Blob([JSON.stringify({app:'groovebox',version:1,song:SONG})],{type:'application/json'})); };
+$('songOpen').onclick=()=>$('songFile').click();
+$('songFile').onchange=e=>{ const f=e.target.files[0]; if(!f) return; f.text().then(txt=>{ const j=JSON.parse(txt), s=j&&(j.song||j); if(!s||s.v!==1||!Array.isArray(s.scenes)||s.scenes.length!==4) throw new Error('format');
+    if(playing) stop(); try{ localStorage.setItem('groovebox-morceau',JSON.stringify(s)); }catch(_){} location.reload(); })
+  .catch(()=>alert('Ce fichier n\'est pas un morceau de la Groovebox.')); e.target.value=''; };
 $('cin').onclick=()=>{ SONG.countin=SONG.countin===false; cinUI(); save(); };
 $('lightchip').style.display=LIGHT?'':'none'; $('lightchip').onclick=()=>{ showTab('mix'); $('perfpanel').scrollIntoView({behavior:'smooth'}); };
 $('sndtest').onclick=()=>{ unlockAudio(); audioOn();
