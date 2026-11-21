@@ -1106,7 +1106,9 @@ function loadBassSamples(k){ const S=BSAMP[k]; if(!S||S.loading) return; S.loadi
   S.notes.forEach(n=>fetch('sons/'+S.dir+'/'+n+'.mp3').then(r=>{ if(!r.ok) throw 0; return r.arrayBuffer(); }).then(a=>ctx.decodeAudioData(a)).then(b=>{ S.buf[n]=b; }).catch(()=>{})); }
 function bvStop(t){ if(!BV) return; const v=BV; BV=null; try{ v.g.gain.cancelScheduledValues(t); v.g.gain.setTargetAtTime(0,t,.015); v.src.stop(t+.2); }catch(e){} }
 function sampleBass(midi,t,acc,legato,dur,closeGate){ const S=BSAMP[SONG.bass.sound], ks=Object.keys(S.buf).map(Number); if(!ks.length) return false;
-  const k=ks.reduce((a,b)=>Math.abs(b-midi)<Math.abs(a-midi)?b:a); if(Math.abs(k-midi)>5) return false;
+  const k=ks.reduce((a,b)=>Math.abs(b-midi)<Math.abs(a-midi)?b:a);
+  // la basse synthé ne doit jamais rester allumée sous la basse enregistrée (sinon une note grave « traîne »)
+  if(bWired){ B.v.gain.cancelScheduledValues(t); B.v.gain.setTargetAtTime(0,t,.01); bWire(false); }
   if(legato&&BV){ const r=Math.pow(2,(midi-BV.k)/12); BV.src.playbackRate.cancelScheduledValues(t); BV.src.playbackRate.setValueAtTime(BV.r,t); BV.src.playbackRate.linearRampToValueAtTime(r,t+Math.max(.02,SONG.bass.glide)); BV.r=r; }
   else { bvStop(t); const src=ctx.createBufferSource(), g=ctx.createGain(), r=Math.pow(2,(midi-k)/12); src.buffer=S.buf[k]; src.playbackRate.setValueAtTime(r,t);
     const L=S.gain*(acc?1.25:.9); g.gain.setValueAtTime(L,t); src.connect(g).connect(CH.bass.inp); src.start(t); src.stop(t+src.buffer.duration/r+.1); BV={src,g,k,r}; }
