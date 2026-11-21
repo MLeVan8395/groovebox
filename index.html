@@ -23,6 +23,8 @@ button,select,input{font:inherit}
 .logo span{color:var(--ch)}
 .play{width:46px;height:40px;border-radius:10px;border:0;background:var(--mx);color:#121419;font-size:18px;cursor:pointer;font-weight:700}
 .play.on{background:var(--dr)}
+.play.on.count{background:var(--mx);color:#111;font-size:22px;font-weight:800}
+#cin.on{color:var(--mx);border-color:var(--mx)}
 .tempo{display:flex;align-items:center;gap:4px;font-family:var(--mono)}
 .tempo b{min-width:34px;text-align:center;font-size:16px}
 .sbtn,.btn{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:14px}
@@ -223,7 +225,7 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
   <div class="tr-row">
     <span class="logo">Groove<span>box</span></span>
     <button class="play" id="play" aria-label="Lecture / arrêt">▶</button>
-    <span class="tempo"><button class="sbtn" id="bpmDn" aria-label="Tempo moins">−</button><b id="bpm">100</b><button class="sbtn" id="bpmUp" aria-label="Tempo plus">+</button><button class="sbtn" id="tap">Tap</button></span>
+    <span class="tempo"><button class="sbtn" id="bpmDn" aria-label="Tempo moins">−</button><b id="bpm">100</b><button class="sbtn" id="bpmUp" aria-label="Tempo plus">+</button><button class="sbtn" id="tap">Tap</button><button class="sbtn" id="cin" title="Deux mesures de décompte avant de commencer">1·2·3·4</button></span>
     <span class="beat" id="beat"><i></i><i></i><i></i><i></i></span>
     <select id="tonic" aria-label="Tonique"></select><select id="mode" aria-label="Mode"></select>
     <span class="nowc">Accord : <b id="nowc">–</b></span>
@@ -1192,8 +1194,17 @@ function tick(){
     nextT+=sdur(); step++; if(step===16){ step=0; bar++; }
   }
 }
-function start(){ audioOn(); if(playing) return; playing=true; step=0; bar=0; arpI=0; curChordKey=null; nextT=ctx.currentTime+.06; B.held=false; tick(); timer=setInterval(tick,LIGHT?50:25); $('play').classList.add('on'); $('play').textContent='■'; $('fab').classList.add('on'); $('fab').textContent='■'; }
-function stop(){ playing=false; clearInterval(timer); vq.length=0; queued=null; bassOff(); $('play').classList.remove('on'); $('play').textContent='▶'; $('fab').classList.remove('on'); $('fab').textContent='▶'; paintPh(-1,-1); renderScenes(); }
+// Décompte : 2 mesures de clics (temps 1 accentué) avant que le morceau démarre
+let cinT=[], cinSrc=[];
+function cinClick(t,acc){ const o=ctx.createOscillator(), g=ctx.createGain(); o.frequency.value=acc?1760:1175; g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(acc?.5:.32,t+.002); g.gain.exponentialRampToValueAtTime(.001,t+.06); o.connect(g).connect(masterG); o.start(t); o.stop(t+.08); cinSrc.push(o); }
+function cinShow(txt){ $('play').textContent=txt; $('fab').textContent=txt; $('play').classList.toggle('count',txt!=='■'); }
+function cinStop(){ cinT.forEach(clearTimeout); cinT=[]; cinSrc.forEach(o=>{ try{ o.stop(); }catch(e){} }); cinSrc=[]; $('play').classList.remove('count'); }
+function cinUI(){ $('cin').classList.toggle('on',SONG.countin!==false); }
+function start(){ audioOn(); if(playing) return; playing=true; step=0; bar=0; arpI=0; curChordKey=null; nextT=ctx.currentTime+.06; B.held=false;
+  if(SONG.countin!==false){ const bt=60/SONG.bpm; for(let k=0;k<8;k++){ const tk=nextT+k*bt; cinClick(tk,k%4===0); cinT.push(setTimeout(()=>cinShow(String(k%4+1)),Math.max(0,(tk-ctx.currentTime)*1000))); }
+    cinT.push(setTimeout(()=>cinShow('■'),Math.max(0,(nextT+8*bt-ctx.currentTime)*1000))); nextT+=8*bt; }
+  tick(); timer=setInterval(tick,LIGHT?50:25); $('play').classList.add('on'); $('play').textContent='■'; $('fab').classList.add('on'); $('fab').textContent='■'; }
+function stop(){ playing=false; clearInterval(timer); cinStop(); vq.length=0; queued=null; bassOff(); $('play').classList.remove('on'); $('play').textContent='▶'; $('fab').classList.remove('on'); $('fab').textContent='▶'; paintPh(-1,-1); renderScenes(); }
 let audioStarted=false;
 function audioOn(){ if(ctx.state!=='running') ctx.resume(); if(!audioStarted){ audioStarted=true; $('startnote').style.display='none'; } }
 // Déblocage du son sur téléphone : Safari et Chrome n'autorisent le son qu'après un vrai geste
@@ -1568,7 +1579,7 @@ window.addEventListener('keyup',e=>{ const v=kdown.get(e.code); if(v==null) retu
 
 /* --- rendu --- */
 function renderScene(){ renderScenes(); renderSeq(); renderGrille(); renderRoll(); $('glen').value=SC().len; $('cpat').value=SC().cpat; curChordKey=null; }
-function renderAll(){ $('bpm').textContent=SONG.bpm; $('tonic').value=SONG.tonic; $('mode').value=SONG.mode; $('kit').value=SONG.kit; $('borrow').value=SONG.chords.borrow;
+function renderAll(){ cinUI(); $('bpm').textContent=SONG.bpm; $('tonic').value=SONG.tonic; $('mode').value=SONG.mode; $('kit').value=SONG.kit; $('borrow').value=SONG.chords.borrow;
 $('clead').checked=SONG.chords.lead; $('svib').checked=SONG.synth.vib;
   renderMchips(); renderChords(); renderScene(); renderStrips(); renderFx(); buildKb(); refreshers.forEach(f=>f()); }
 let phEls=[]; // cases allumées par la tête de lecture : on n'éteint que celles-là (pas de recherche dans toute la page)
@@ -1593,6 +1604,7 @@ let lastS=-1, synthDrawn='', frameN=0; // les courbes du synthé ne sont redessi
   requestAnimationFrame(loop);
 })();
 
+$('cin').onclick=()=>{ SONG.countin=SONG.countin===false; cinUI(); save(); };
 $('lightchip').style.display=LIGHT?'':'none'; $('lightchip').onclick=()=>{ showTab('mix'); $('perfpanel').scrollIntoView({behavior:'smooth'}); };
 $('sndtest').onclick=()=>{ unlockAudio(); audioOn();
   // bip direct vers la sortie (sans passer par le mixeur), puis bip à travers le mixeur
