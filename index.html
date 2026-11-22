@@ -722,8 +722,14 @@ const tonicNote=()=>{ const [,l,a]=TONICS[SONG.tonic]; return {l,a}; };
 // Un accord de la grille garde la tonalité (t) et le mode (m) dans lesquels il a été écrit :
 // changer de tonalité ensuite ne le modifie pas. Sans t/m, il suit la tonalité en cours.
 const modeShort=m=>MODES[m].n.split(' ')[0].toLowerCase();
-function resolve(ref){ if(!ref) return null; const tk=ref.t!=null?ref.t:SONG.tonic, md=ref.m||SONG.mode, t=(([,l,a])=>({l,a}))(TONICS[tk]), n=ref.n||SONG.chords.nb; let c;
-  if(ref.s) c=secChord(ref.s,t,md,ref.d,n); else { const sc=scaleOf(t, ref.b||md); c=chordOf(sc,ref.d,n,pcOf(t)); c.bor=!!ref.b && ref.b!==md; }
+// Power chord : fondamentale + quinte juste (+ octave au jeu), sans tierce. Noté « C5 », « I5 ».
+// (la basse garde les intervalles de l'accord complet pour ses motifs)
+function toPower(c){ const R=c.nn[0], r=pcOf(R), l=(R.l+4)%7; let a=(((r+7)%12-NAT[l])%12+12)%12; if(a>6)a-=12; const F={l,a};
+  c.nn=[R,F]; c.pcs=[r,(r+7)%12]; c.name=nameEN(R)+'5'; c.fr=nameFR(R)+' '+nameFR(F); c.key='P'+r; c.power=true;
+  const m=c.roman.match(/^([♭♯]*)([ivIV]+)[^/]*(.*)$/); if(m){ c.roman=m[1]+m[2].toUpperCase()+'5'+m[3]; c.tri=c.roman; } }
+function resolve(ref){ if(!ref) return null; const tk=ref.t!=null?ref.t:SONG.tonic, md=ref.m||SONG.mode, t=(([,l,a])=>({l,a}))(TONICS[tk]), n=ref.n||SONG.chords.nb, n0=n===2?3:n; let c;
+  if(ref.s) c=secChord(ref.s,t,md,ref.d,n0); else { const sc=scaleOf(t, ref.b||md); c=chordOf(sc,ref.d,n0,pcOf(t)); c.bor=!!ref.b && ref.b!==md; }
+  if(n===2) toPower(c);
   if(tk!==SONG.tonic||md!==SONG.mode) c.away=TONICS[tk][0]+' '+modeShort(md);
   let bn=null; if(ref.bl!=null){ const l=(t.l+ref.bl)%7, pc=(pcOf(t)+ref.bi)%12; let a=((pc-NAT[l])%12+12)%12; if(a>6)a-=12; bn={l,a}; } else if(ref.bd!=null) bn=scaleOf(t,md)[ref.bd];
   if(bn){ const bp=pcOf(bn);
@@ -940,8 +946,8 @@ const STYLES = {
   trap:{nom:'Trap', drum:'trap', bass:'hiphop', cp:'ronde'}, shuffle:{nom:'Shuffle blues', drum:'shuffle', bass:'boogie', cp:'charleston', bs:'eb'},
   reggae:{nom:'Reggae one drop', drum:'reggae', bass:'reggae', cp:'skank', bs:'eb'}, stepper:{nom:'Reggae stepper', drum:'stepper', bass:'reggae', cp:'skank', bs:'eb'},
   jazz:{nom:'Jazz swing', drum:'jazz', bass:'walking', cp:'charleston', bs:'cb'}, bossa:{nom:'Bossa nova', drum:'bossa', bass:'bossa', cp:'bossa', bs:'cb'},
-  halftime:{nom:'Métal halftime double pédale', drum:'halftime', bass:'halftime', cp:'blanches', kit:'rock', bs:'eb'},
-  skank:{nom:'Métal / punk (skank beat)', drum:'skank', bass:'skank', cp:'croches', kit:'rock', bs:'eb'},
+  halftime:{nom:'Métal halftime double pédale', drum:'halftime', bass:'halftime', cp:'blanches', kit:'rock', bs:'eb', pc:true, sound:'pluck'},
+  skank:{nom:'Métal / punk (skank beat)', drum:'skank', bass:'skank', cp:'croches', kit:'rock', bs:'eb', pc:true, sound:'pluck'},
   country:{nom:'Country (train beat)', drum:'country', bass:'country', cp:'country', kit:'rock', bs:'eb'}, dnb:{nom:'Drum and bass', drum:'dnb', bass:'dnb', cp:'ronde', kit:'rock', sound:'pad'},
 };
 const newScene = () => ({drums:drumFromPreset('rock'), cpat:'croches', len:4, bars:[{b:null,d:0,n:3},{b:null,d:4,n:3},{b:null,d:5,n:3},{b:null,d:3,n:3}].concat(Array(12).fill(null)), bass:parseBass(BASS_PRESETS.rock.s), bpre:'rock'});
@@ -1095,6 +1101,8 @@ function stack(pcs,lo){ const v=[lo]; let p=lo; for(let k=1;k<pcs.length;k++){ l
 function dist(a,b){ let s=0; a.forEach(x=>s+=Math.min(...b.map(y=>Math.abs(x-y)))); b.forEach(y=>s+=Math.min(...a.map(x=>Math.abs(x-y)))); return s; }
 function voicing(pcs){
   const O=12*(SONG.chords.oct||0);
+  // power chord : toujours en position serrée dans le grave, comme à la guitare (fondamentale, quinte, octave)
+  if(pcs.length===2){ const lo=40+O+((pcs[0]-40)%12+12)%12; return [lo,lo+7,lo+12]; }
   if(!SONG.chords.lead||!lastVoicing){ let lo=48+O+((pcs[0]-48)%12+12)%12; if(lo<53+O) lo+=12; return stack(pcs,lo); }
   let best=null,bs=1e9;
   for(let inv=0;inv<pcs.length;inv++){ const rot=pcs.slice(inv).concat(pcs.slice(0,inv));
@@ -1278,6 +1286,8 @@ $('style').onchange=e=>{ const k=e.target.value; if(!k) return; applyStyle(k); e
 function applyStyle(k){ pushUndo(); const st=STYLES[k], dp=PRESETS[st.drum], sc=SC(); sc.dres=16;
   sc.drums=drumFromPreset(st.drum); sc.bass=parseBass(BASS_PRESETS[st.bass].s); sc.bpre=st.bass; sc.cpat=st.cp;
   SONG.bpm=dp.bpm; SONG.swing=dp.swing; SONG.res=dp.res; if(dp.kit) SONG.kit=dp.kit; if(st.kit) SONG.kit=st.kit; if(st.sound) SONG.chords.sound=st.sound; SONG.bass.sound=st.bs||'synth';
+  // styles métal : les accords passent en power chords (pads et grille de la scène ; ↶ Annuler pour revenir)
+  if(st.pc){ SONG.chords.nb=2; [sc.bars,B2(sc)].forEach(a=>a.forEach((r,i)=>{ if(r) a[i]=Object.assign({},r,{n:2}); })); curChordKey=null; lastVoicing=null; }
   SP=SND.map((_,i)=>defParams(i,SONG.kit)); if(dp.snd) Object.entries(dp.snd).forEach(([id,o])=>Object.assign(SP[IDX[id]],o));
   updateFX(); renderAll(); save(); }
 function renderScenes(){ const box=$('scenes'); box.innerHTML='';
@@ -1334,7 +1344,7 @@ dsel($('csound'),Object.fromEntries(Object.entries(CSOUNDS).map(([k,o])=>[k,o.n]
 Object.entries(CPAT).forEach(([k,o])=>$('cpat').add(new Option(o.n,k)));
 $('cpat').onchange=e=>{ pushUndo(); SC().cpat=e.target.value; arpI=0; save(); };
 seg($('coct'),{'m1':'−1','z':'0','p1':'+1','p2':'+2'},()=>({'-1':'m1','0':'z','1':'p1','2':'p2'})[SONG.chords.oct||0],k=>{ SONG.chords.oct={m1:-1,z:0,p1:1,p2:2}[k]; lastVoicing=null; curChordKey=null; });
-dsel($('cnb'),{n3:'3 sons',n4:'4 sons',n5:'5 sons'},()=>'n'+SONG.chords.nb,k=>{ SONG.chords.nb=+k.slice(1); curChordKey=null; lastVoicing=null; renderChords(); });
+dsel($('cnb'),{n2:'Power chords (5)',n3:'3 sons',n4:'4 sons',n5:'5 sons'},()=>'n'+SONG.chords.nb,k=>{ SONG.chords.nb=+k.slice(1); curChordKey=null; lastVoicing=null; renderChords(); });
 $('clead').onchange=e=>{ SONG.chords.lead=e.target.checked; save(); };
 seg($('secmode'),{v:'Dominante V7',dim:'Diminuée VII°7',sub:'Substitution tritonique'},()=>SONG.chords.sec,k=>{ SONG.chords.sec=k; renderPads(); });
 $('borrow').onchange=e=>{ SONG.chords.borrow=e.target.value; renderPads(); save(); };
