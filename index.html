@@ -965,13 +965,17 @@ conv.connect(masterG); masterG.connect(comp).connect(ctx.destination);
 let revOn=false; // la réverb n'est branchée que si un instrument y envoie du son
 const panner = v => { if(ctx.createStereoPanner){ const p=ctx.createStereoPanner(); p.pan.value=v; return p; } return G(1); };
 const lfoOsc = f => { const o=ctx.createOscillator(); o.frequency.value=f; o.start(); return o; };
-function satCurve(drive){ const k=1+drive*40, n=2048, c=new Float32Array(n), t=Math.tanh(k); for(let i=0;i<n;i++){ const x=i*2/(n-1)-1; c[i]=Math.tanh(k*x)/t; } return {c,post:Math.min(1,.28+1.2/k)}; }
+// Saturation façon ampli : gain d'entrée (jusqu'à +38 dB), courbe légèrement asymétrique (harmoniques paires, plus « chaude »),
+// bosse dans les médiums avant l'écrêtage, et filtre « baffle » après pour enlever le grésillement.
+const SAT_CURVE=(()=>{ const n=4096, c=new Float32Array(n), a=Math.tanh(2.5), b=Math.tanh(3.2); for(let i=0;i<n;i++){ const x=i*2/(n-1)-1; c[i]=x>=0?Math.tanh(2.5*x)/a:.9*Math.tanh(3.2*x)/b; } return c; })();
+function satParams(drive){ const g=1+80*drive*drive; return {g, post:Math.min(1,.26+.74/Math.sqrt(g)), mid:drive*9, lp:7500-drive*3300}; }
 function makeRack(){
   // Chaque effet est un « étage » autonome. Un étage éteint est débranché de la chaîne :
   // ses nœuds (filtres, LFO, lignes à retard) ne sont alors plus calculés du tout.
   const inp=G(1), out=G(1), S={};
-  { const i=G(1), satDry=G(1), shaper=ctx.createWaveShaper(), satPost=G(1), satWet=G(0), o=G(1); shaper.oversample=LIGHT?'none':'4x';
-    i.connect(satDry).connect(o); i.connect(shaper).connect(satPost).connect(satWet).connect(o); S.sat={i,o,tail:.05,shaper,satDry,satPost,satWet}; }
+  { const i=G(1), satDry=G(1), shaper=ctx.createWaveShaper(), satPost=G(1), satWet=G(0), o=G(1), pre=G(1), hp=ctx.createBiquadFilter(), mid=ctx.createBiquadFilter(), cab=ctx.createBiquadFilter();
+    shaper.oversample=LIGHT?'2x':'4x'; shaper.curve=SAT_CURVE; hp.type='highpass'; hp.frequency.value=70; mid.type='peaking'; mid.frequency.value=900; mid.Q.value=.8; cab.type='lowpass'; cab.Q.value=.7;
+    i.connect(satDry).connect(o); i.connect(hp).connect(mid).connect(pre).connect(shaper).connect(cab).connect(satPost).connect(satWet).connect(o); S.sat={i,o,tail:.05,shaper,satDry,satPost,satWet,pre,mid,cab}; }
   { const i=G(1), phDry=G(1), phWet=G(0), o=G(1), phSum=G(1), phFb=G(0), phFbD=ctx.createDelay(.01), phLfo=lfoOsc(.4), phAmt=G(0);
     phFbD.delayTime.value=0; i.connect(phDry).connect(o); i.connect(phSum);
     let prev=phSum; [250,500,900,1500,2400,3800].forEach(f=>{ const ap=ctx.createBiquadFilter(); ap.type='allpass'; ap.frequency.value=f; ap.Q.value=.6; phAmt.connect(ap.detune); prev.connect(ap); prev=ap; });
@@ -999,7 +1003,7 @@ function makeRack(){
       // on laisse finir le son de l'effet (fondu, répétitions du delay) avant de le débrancher
       else if(live[k]&&!timers[k]) timers[k]=setTimeout(()=>{ timers[k]=null; if(!F[k].on){ live[k]=false; rewire(); } },S[k].tail*1000+60); });
     rewire();
-    const A=S.sat; if(F.sat.drive!==lastDrive){ const {c,post}=satCurve(F.sat.drive); A.shaper.curve=c; s(A.satPost.gain,post); lastDrive=F.sat.drive; }
+    const A=S.sat; if(F.sat.drive!==lastDrive){ const P=satParams(F.sat.drive); s(A.pre.gain,P.g); s(A.satPost.gain,P.post); s(A.mid.gain,P.mid); s(A.cab.frequency,P.lp); lastDrive=F.sat.drive; }
     s(A.satDry.gain,F.sat.on?1-F.sat.mix:1); s(A.satWet.gain,F.sat.on?F.sat.mix:0);
     const P=S.phaser; s(P.phLfo.frequency,F.phaser.rate); s(P.phAmt.gain,F.phaser.depth*2400); s(P.phFb.gain,F.phaser.on?F.phaser.fb*.85:0); s(P.phWet.gain,F.phaser.on?.7:0); s(P.phDry.gain,F.phaser.on?.7:1);
     const Fl=S.flanger; s(Fl.flLfo.frequency,F.flanger.rate); s(Fl.flAmt.gain,F.flanger.depth*.0035); s(Fl.flFb.gain,F.flanger.on?F.flanger.fb*.9:0); s(Fl.flWet.gain,F.flanger.on?.7:0); s(Fl.flDry.gain,F.flanger.on?.7:1);
