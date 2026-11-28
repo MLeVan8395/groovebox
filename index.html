@@ -1077,7 +1077,8 @@ function drumHit(i,t,vel){ if(CAP){ CAP.dr.push({t,n:GMDR[SND[i].id]||38,v:Math.
    ====================================================================== */
 function rel(p,t,tau){ if(p.cancelAndHoldAtTime) p.cancelAndHoldAtTime(t); else p.cancelScheduledValues(t); p.setTargetAtTime(0,t,tau); }
 const ORGW=new Map(); const orgWave=()=>{ let w=ORGW.get(ctx); if(!w){ const re=new Float32Array(9), im=new Float32Array(9); [[1,1],[2,.75],[3,.55],[4,.4],[6,.25],[8,.2]].forEach(([h,a])=>im[h]=a); w=ctx.createPeriodicWave(re,im); ORGW.set(ctx,w); if(ORGW.size>3) ORGW.delete(ORGW.keys().next().value); } return w; };
-const vibLfo=lfoOsc(6.2), vibAmt=G(7); vibLfo.connect(vibAmt);
+// vibrato de l'orgue : un LFO par contexte audio (le direct et la préparation hors temps réel ont chacun le leur)
+const VIB=new Map(); const vibFor=()=>{ let v=VIB.get(ctx); if(!v){ const l=lfoOsc(6.2); v=G(7); l.connect(v); VIB.set(ctx,v); if(VIB.size>3) VIB.delete(VIB.keys().next().value); } return v; };
 function mo(type,f,t){ const o=ctx.createOscillator(); if(type==='org') o.setPeriodicWave(orgWave()); else o.type=type; o.frequency.value=f; o.start(t); return o; }
 function finish(nodes,oscs,t){ oscs.forEach(o=>o.stop(t)); oscs[0].onended=()=>nodes.forEach(n=>{try{n.disconnect()}catch(e){}}); }
 const CSOUNDS = {
@@ -1086,7 +1087,7 @@ const CSOUNDS = {
     mg.gain.setValueAtTime(f*2,t); mg.gain.setTargetAtTime(f*.3,t,.35); tg.gain.setValueAtTime(f*1.1,t); tg.gain.setTargetAtTime(0,t,.025);
     a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(L,t+.004); a.gain.setTargetAtTime(L*.22,t+.004,1.1); c.connect(a).connect(out);
     return {release(r){ rel(a.gain,r,.13); finish([c,md,mg,ti,tg,a],[c,md,ti],r+.9); }}; }},
-  org:{n:'Orgue', make(m,t,v,out){ const o=mo('org',mtof(m),t), a=G(0), L=.09*v; vibAmt.connect(o.detune);
+  org:{n:'Orgue', make(m,t,v,out){ const o=mo('org',mtof(m),t), a=G(0), L=.09*v; const vibAmt=vibFor(); vibAmt.connect(o.detune);
     a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(L,t+.008); o.connect(a).connect(out);
     return {release(r){ rel(a.gain,r,.025); finish([o,a],[o],r+.25); setTimeout(()=>{try{vibAmt.disconnect(o.detune)}catch(e){}},Math.max(0,(r-ctx.currentTime+.3)*1000)); }}; }},
   pad:{n:'Nappe', make(m,t,v,out){ const f=mtof(m), o1=mo('sawtooth',f,t), o2=mo('sawtooth',f,t), fl=ctx.createBiquadFilter(), a=G(0), L=.055*v;
