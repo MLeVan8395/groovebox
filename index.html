@@ -1511,15 +1511,19 @@ refreshers.push(bsoundUI);
 [['Coupure du filtre','cutoff',60,4000,true,F.hz],['Résonance','res',0,1,false,F.pct],['Enveloppe du filtre','env',0,1,false,F.pct],['Déclin du filtre','decay',.03,1.5,true,F.s],['Glissando (durée)','glide',.01,.4,true,F.s],['Sous-oscillateur (octave grave)','sub',0,1,false,F.pct]]
   .forEach(([label,k,min,max,log,fmt])=>slider($('bsl'),{label,min,max,log,get:()=>SONG.bass[k],set:v=>{ SONG.bass[k]=v; bassParams(); },fmt}));
 const ROLL_HI=60, ROLL_LO=33; let rollCells={};
+// Quand la basse suit les accords, les lignes du piano roll sont nommées par intervalle depuis la fondamentale
+// (1 = fondamentale, 3 = tierce, 5 = quinte…) ; ↓ = octave grave, ↑ = octave aiguë, 8 = octave.
+const IVN=['1','♭2','2','♭3','3','4','♯4','5','♯5','6','♭7','7'];
+const ivLabel=n=>{ const o=Math.floor(n/12), i=((n%12)+12)%12; if(i===0&&o===1) return '8'; if(i===0&&o===2) return '8↑'; return IVN[i]+(o<0?'↓':o>0?'↑':''); };
 function renderRoll(){ const g=$('roll'), sc=SC(); g.innerHTML=''; rollCells={};
   const fol=SONG.bass.follow;
   for(let m=ROLL_HI;m>=ROLL_LO;m--){ const n=m-36, pc=((m%12)+12)%12, blk=[1,3,6,8,10].includes(pc), ct=fol&&[0,4,7].includes(pc);
-    const lb=document.createElement('span'); lb.className='rl'+(ct?' ct':'')+(blk?' blk':''); lb.textContent=FRN[[0,0,1,1,2,3,3,4,4,5,5,6][pc]]+(blk?'♯':'')+(Math.floor(m/12)-2);
+    const lb=document.createElement('span'); lb.className='rl'+(ct?' ct':'')+(blk?' blk':''); lb.textContent=fol?ivLabel(n):FRN[[0,0,1,1,2,3,3,4,4,5,5,6][pc]]+(blk?'♯':'')+(Math.floor(m/12)-2);
     lb.onclick=()=>{ audioOn(); const t=ctx.currentTime+.01; bassNote(m,t,false,false,.3,true); }; g.appendChild(lb);
     for(let k=0;k<16;k++){ const c=document.createElement('button'); c.className='rc'+(blk?' blk':'')+(k%4===0?' b4':'')+(ct?' ctr':''); c.setAttribute('aria-label','Note '+lb.textContent+' case '+(k+1));
       c.dataset.n=n; c.dataset.k=k; g.appendChild(c); rollCells[n+'_'+k]=c; } }
   const rw=g.parentElement; requestAnimationFrame(()=>{ rw.scrollTop=rw.scrollHeight; }); paintRoll(); $('bpreset').value=sc.bpre in BASS_PRESETS?sc.bpre:'vide'; $('bfollow').checked=SONG.bass.follow; }
-function paintRoll(){ const sc=SC(); $('bscore').innerHTML=engraveBassLine(sc.bass); $('bsCap').textContent=SONG.bass.follow?'clé de Fa · écrite sur un accord de Do, transposée sur chaque accord (avec une basse étrangère, la fondamentale devient cette basse)':'clé de Fa'; Object.values(rollCells).forEach(c=>c.classList.remove('on','acc','lig'));
+function paintRoll(){ const sc=SC(); $('bscore').innerHTML=engraveBassLine(sc.bass); $('bsCap').textContent=SONG.bass.follow?'clé de Fa · écrite sur un accord de Do, transposée sur chaque accord (avec une basse étrangère, la fondamentale devient cette basse) · piano roll en intervalles : 3 et ♭3 donnent la tierce de l\'accord (majeure ou mineure selon l\'accord), de même pour la quinte et la septième':'clé de Fa'; Object.values(rollCells).forEach(c=>c.classList.remove('on','acc','lig'));
   sc.bass.forEach((st,k)=>{ if(!st) return; const c=rollCells[st.n+'_'+k]; if(c){ c.classList.add('on'); c.classList.toggle('acc',!!st.a); c.classList.toggle('lig',!!st.l); } }); }
 // placer une note de longueur L (cases liées), effacer une note entière ou la raccourcir
 function chainEnd(b,k){ let e=k; while(e+1<16&&b[e+1]&&b[e+1].l&&b[e+1].n===b[k].n) e++; return e; }
