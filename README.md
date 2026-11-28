@@ -25,6 +25,7 @@ Elle fonctionne ensuite **hors ligne** et se met à jour toute seule.
 | **Synthé** | Le mini-synthé pour jouer une mélodie par-dessus (oscillateur, bruit, filtre passe-bas / passe-haut / passe-bande avec sa courbe, enveloppes ADSR visualisées en direct, vibrato) et une **molette de pitch** (± 2 demi-tons ou ± 1 octave) |
 | **Mixeur** | Pour chaque instrument : niveau, **Mute**, **Solo**, envoi vers la réverb commune, et un **rack d'effets en insert** (saturation, phaser, flanger, chorus, trémolo, delay calé sur le tempo) |
 | **Mode léger** | Pour les téléphones et tablettes (automatique, ou forcé dans le Mixeur) : son préparé plus en avance, réverb plus courte, affichage allégé. Dans tous les cas, un effet éteint est débranché et ne consomme rien. |
+| **Lecture préparée** | La scène est calculée à l'avance (hors temps réel) puis rejouée comme un enregistrement, comme une appli native : plus de craquements sur tablette. Automatique avec le mode léger. |
 | **Sauvegarde et export** | Morceau complet en fichier **.groovebox** (enregistrer / ouvrir) ; scène en **MIDI** 3 pistes (batterie GM canal 10, basse, accords + noms d'accords), à glisser dans Cubase / Reason ou à télécharger. |
 | **Clavier MIDI** | Chrome / Edge (ordinateur) et Chrome (Android) : les touches jouent le synthé, la basse, les accords ou la batterie ; les pads (canal 10) jouent la batterie ; molettes de pitch et de modulation, pédale de sustain, volume ; apprentissage des boutons et faders. Pas disponible sur iPad / iPhone (Apple ne le permet pas) |
 | **Annuler / rétablir** | Sur les trois séquenceurs (boutons ↶ ↷ ou Ctrl+Z / Ctrl+Maj+Z) |
@@ -43,3 +44,7 @@ Elle fonctionne ensuite **hors ligne** et se met à jour toute seule.
 - Contrebasse pizzicato : VSCO 2 Community Edition, Versilian Studios, CC0 (https://github.com/sgossner/VSCO-2-CE).
 - Kit rock : « SM Drums », Scott McLean, Tod Stillwell, Suleiman Ali, domaine public (https://github.com/sfzinstruments/SMDrums).
 - Polices : Space Grotesk et JetBrains Mono (Google Fonts, licence SIL OFL).
+
+
+## Hors ligne
+Une fois ouverte une première fois (dans le navigateur ou installée), l'appli fonctionne sans connexion : la page, les sons et les icônes sont gardés sur l'appareil.
