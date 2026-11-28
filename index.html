@@ -112,6 +112,8 @@ details.help b{color:var(--text)}
 .qr svg{width:min(240px,70vw);height:auto;background:#fff;border-radius:10px;padding:6px;display:block}
 .qr .lbl{display:block;margin-top:4px}
 #qrSong svg{width:min(340px,85vw)}
+.seg.pages:empty{display:none}
+.seg.pages button.ph{box-shadow:0 0 0 2px var(--mx) inset}
 .dragghost{position:fixed;left:0;top:0;pointer-events:none;z-index:95;padding:7px 12px;border-radius:10px;background:color-mix(in srgb,var(--ch) 35%,var(--panel));border:1px solid var(--ch);color:var(--text);font-weight:700;font-size:16px;box-shadow:0 6px 18px #0008;transform:translate(-50%,-130%);white-space:nowrap}
 #grille .slot{touch-action:none}
 #grille.dragging .slot:not(.off){border-color:color-mix(in srgb,var(--mx) 60%,var(--line))}
@@ -254,13 +256,15 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
   <div class="panel">
     <div class="ctl"><label class="fld"><span class="lbl">Kit</span><select id="kit"></select></label>
       <label class="fld"><span class="lbl">Rythme</span><select id="dpreset"></select></label>
+      <label class="fld"><span class="lbl">Longueur</span><select id="dbars"><option value="1">1 mesure</option><option value="2">2 mesures</option></select></label>
+      <span class="seg pages" id="dpages" style="--c:var(--dr)"></span>
       <label class="fld"><span class="lbl">Débit</span><select id="dres"><option value="16">Doubles croches (1/16)</option><option value="8">Croches (1/8)</option></select></label>
       <div style="flex:1;min-width:160px" id="swingBox"></div>
       <button class="btn ub" data-undo title="Annuler (Ctrl+Z)">↶ Annuler</button><button class="btn ub" data-redo title="Rétablir (Ctrl+Maj+Z)">↷</button><button class="btn" id="dclear">Vider</button></div>
     <p class="gdesc" id="dhint"></p>
   </div>
   <div class="panel"><div class="dpads" id="dpads"></div></div>
-  <div class="panel"><h2>Partition <span class="lbl">portée de percussion</span></h2><div class="score" id="dscore"></div>
+  <div class="panel"><h2>Partition <span class="lbl" id="dsCap">portée de percussion</span></h2><div class="score" id="dscore"></div>
     <p class="dlegend">En haut, hampes vers le haut : les mains (charleston, ride, crash, caisse claire, toms). En bas, hampes vers le bas : les pieds (grosse caisse, charleston au pied). Têtes en croix = cymbales ; « o » = charleston ouvert ; croix cerclée = cercle (cross-stick) ; triangle = cloche.</p></div>
   <div class="panel"><div class="seqwrap"><div class="seq" id="seq"></div></div>
     <details class="help"><summary>Comprendre le séquenceur</summary>
@@ -312,6 +316,8 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
       <label class="fld"><span class="lbl">Motif</span><select id="bpreset"></select></label>
       <label class="fld"><span class="lbl">Toucher</span><select id="bedit"></select></label>
       <label class="fld"><span class="lbl">Durée</span><select id="bdur"></select></label>
+      <label class="fld"><span class="lbl">Longueur</span><select id="bbars"><option value="1">1 mesure</option><option value="2">2 mesures</option></select></label>
+      <span class="seg pages" id="bpages" style="--c:var(--ba)"></span>
       <label class="chk"><input type="checkbox" id="bfollow"> Suivre les accords</label>
       <span class="fld"><button class="btn ub" data-undo title="Annuler (Ctrl+Z)">↶ Annuler</button><button class="btn ub" data-redo title="Rétablir (Ctrl+Maj+Z)">↷</button><button class="btn" id="bclear">Vider</button></span></div>
     <p class="gdesc" id="bhint"></p>
@@ -1226,7 +1232,7 @@ function bassChordAt(barI,s=0){ const sc=SC(); if(SONG.chords.src==='live') retu
 function schedStep(s,barI,t){
   const sc=SC(), sd=sdur();
   // batterie
-  for(let r=0;r<SND.length;r++){ const v=sc.drums[r][s]; if(v) drumHit(r,t,DVEL[v]); }
+  const di=(barI%DB(sc))*16+s; for(let r=0;r<SND.length;r++){ const v=sc.drums[r][di]; if(v) drumHit(r,t,DVEL[v]); }
   // accords
   const ref=chordRefAt(barI,s), ch=resolve(ref);
   if(ch){ if(ch.key!==curChordKey){ curChordKey=ch.key; curNotes=voicing(ch.pcs); lastVoicing=curNotes; } const spl=SONG.chords.src==='grille'&&SPL(sc)[barI%sc.len];
@@ -1235,9 +1241,9 @@ function schedStep(s,barI,t){
     else if(spl&&sc.cpat==='charleston'){ if(s===0||s===8) chit(curNotes,t,sd*5.5); }
     else CPAT[sc.cpat].f(s,t,sd,curNotes); }
   // basse
-  const st=sc.bass[s];
+  const bi=(barI%BB(sc))*16+s, st=sc.bass[bi];
   if(st){ const bch=bassChordAt(barI,s), midi=mapBass(st.n,bch); const leg=st.l&&B.held;
-    const nx=sc.bass[(s+1)%16], keep=!!(nx&&nx.l); bassNote(midi,t,st.a,leg,sd*.9,!keep); B.held=keep; }
+    const nx=sc.bass[(bi+1)%sc.bass.length], keep=!!(nx&&nx.l); bassNote(midi,t,st.a,leg,sd*.9,!keep); B.held=keep; }
   else B.held=false;
   vq.push({t,s,bar:barI,ch,notes:curNotes});
 }
@@ -1345,7 +1351,7 @@ $('tonic').onchange=e=>{ stampGrid(); SONG.tonic=+e.target.value; curChordKey=nu
 $('mode').onchange=e=>{ stampGrid(); SONG.mode=e.target.value; if(SONG.chords.borrow===SONG.mode){ SONG.chords.borrow=SONG.mode==='ionien'?'eolien':'ionien'; } curChordKey=null; renderChords(); save(); };
 $('style').onchange=e=>{ const k=e.target.value; if(!k) return; applyStyle(k); e.target.value=''; };
 function applyStyle(k){ pushUndo(); const st=STYLES[k], dp=PRESETS[st.drum], sc=SC(); sc.dres=16;
-  sc.drums=drumFromPreset(st.drum); sc.bass=parseBass(BASS_PRESETS[st.bass].s); sc.bpre=st.bass; sc.cpat=st.cp;
+  sc.drums=drumFromPreset(st.drum); sc.bass=parseBass(BASS_PRESETS[st.bass].s); sc.dbars=1; sc.bbars=1; dpage=0; bpage=0; sc.bpre=st.bass; sc.cpat=st.cp;
   SONG.bpm=dp.bpm; SONG.swing=dp.swing; SONG.res=dp.res; if(dp.kit) SONG.kit=dp.kit; if(st.kit) SONG.kit=st.kit; if(st.sound) SONG.chords.sound=st.sound; SONG.bass.sound=st.bs||'synth';
   // styles métal : les accords passent en power chords (pads et grille de la scène ; ↶ Annuler pour revenir)
   if(st.pc){ SONG.chords.nb=2; [sc.bars,B2(sc)].forEach(a=>a.forEach((r,i)=>{ if(r) a[i]=Object.assign({},r,{n:2}); })); curChordKey=null; lastVoicing=null; }
@@ -1373,11 +1379,14 @@ Object.entries(KITS).forEach(([k,o])=>$('kit').add(new Option(o.nom,k)));
 Object.entries(PRESETS).forEach(([k,o])=>$('dpreset').add(new Option(o.nom,k)));
 $('dpreset').insertBefore(new Option('Choisir…',''),$('dpreset').firstChild); $('dpreset').value='';
 $('kit').onchange=e=>{ SONG.kit=e.target.value; SP=SND.map((_,i)=>defParams(i,SONG.kit)); save(); };
-$('dpreset').onchange=e=>{ const k=e.target.value; if(!k) return; pushUndo(); const p=PRESETS[k]; SC().drums=drumFromPreset(k); if(SC().drums.some(r=>r.some((v,i)=>v&&i%2))) SC().dres=16; SONG.swing=p.swing; SONG.res=p.res; if(p.kit){ SONG.kit=p.kit; $('kit').value=p.kit; } SP=SND.map((_,i)=>defParams(i,SONG.kit)); if(p.snd) Object.entries(p.snd).forEach(([id,o])=>Object.assign(SP[IDX[id]],o)); renderSeq(); refreshers.forEach(f=>f()); save(); e.target.value=''; };
+$('dpreset').onchange=e=>{ const k=e.target.value; if(!k) return; pushUndo(); const p=PRESETS[k]; SC().drums=drumFromPreset(k); SC().dbars=1; dpage=0; if(SC().drums.some(r=>r.some((v,i)=>v&&i%2))) SC().dres=16; SONG.swing=p.swing; SONG.res=p.res; if(p.kit){ SONG.kit=p.kit; $('kit').value=p.kit; } SP=SND.map((_,i)=>defParams(i,SONG.kit)); if(p.snd) Object.entries(p.snd).forEach(([id,o])=>Object.assign(SP[IDX[id]],o)); renderSeq(); refreshers.forEach(f=>f()); save(); e.target.value=''; };
 $('dres').onchange=e=>{ const n=+e.target.value, sc=SC(); pushUndo(); let lost=false;
   if(n===8) sc.drums.forEach(r=>r.forEach((v,i)=>{ if(v&&i%2){ r[i]=0; lost=true; } }));
   sc.dres=n; renderSeq(); save(); if(lost) $('dhint').textContent='Les doubles croches ont été retirées (↶ Annuler pour revenir en arrière).'; else $('dhint').textContent=''; };
-$('dclear').onclick=()=>{ pushUndo(); SC().drums=SND.map(()=>Array(16).fill(0)); renderSeq(); save(); };
+// passer à 2 mesures recopie la 1re mesure dans la 2e (on modifie ensuite) ; revenir à 1 mesure garde la 1re (↶ Annuler pour revenir)
+$('dbars').onchange=e=>{ pushUndo(); const sc=SC(); sc.dbars=+e.target.value; fitBars(sc); dpage=sc.dbars===2?1:0; renderSeq(); save(); };
+$('bbars').onchange=e=>{ pushUndo(); const sc=SC(); sc.bbars=+e.target.value; fitBars(sc); bpage=sc.bbars===2?1:0; renderRoll(); save(); };
+$('dclear').onclick=()=>{ pushUndo(); SC().drums=SND.map(()=>Array(16*DB(SC())).fill(0)); renderSeq(); save(); };
 slider($('swingBox'),{label:'Swing (tous les instruments)',min:0,max:1,get:()=>SONG.swing,set:v=>SONG.swing=v,fmt:F.pct});
 const DPAD=[['hhc','KeyQ','A'],['hho','KeyW','Z'],['ride','KeyE','E'],['crash','KeyR','R'],['bell','KeyT','T'],['rim','KeyY','Y'],['hhp','KeyA','Q'],['kick','KeyS','S'],['snare','KeyD','D'],['clap','KeyF','F'],['tomh','KeyG','G'],['toml','KeyH','H']];
 const dpadEls={};
@@ -1388,14 +1397,21 @@ const COUNT=['1','ti','ke','ta','2','ti','ke','ta','3','ti','ke','ta','4','ti','
 let seqCells=[];
 const COUNT8=['1','et','2','et','3','et','4','et'];
 const dres=()=>SC().dres===8?8:16;
-function renderSeq(){ const g=$('seq'); g.innerHTML=''; seqCells=SND.map(()=>[]); const n=dres(), sk=16/n; g.style.setProperty('--n',n); $('dres').value=String(n);
+// ---- Motifs de batterie et de basse sur 1 ou 2 mesures (on édite une mesure à la fois) ----
+const DB=sc=>sc.dbars===2?2:1, BB=sc=>sc.bbars===2?2:1; let dpage=0, bpage=0;
+function fitBars(sc){ const d=16*DB(sc), b=16*BB(sc);
+  sc.drums=sc.drums.map(r=>r.length===d?r:r.length<d?r.concat(r.slice(0,16)):r.slice(0,d));
+  if(sc.bass.length!==b) sc.bass=sc.bass.length<b?sc.bass.concat(sc.bass.slice(0,16).map(x=>x&&{...x})):sc.bass.slice(0,b); }
+function pagesUI(w){ const sc=SC(), n=w==='d'?DB(sc):BB(sc), el=$(w+'pages'), cur=w==='d'?dpage:bpage; $(w+'bars').value=String(n); el.innerHTML='';
+  if(n>1) for(let i=0;i<n;i++){ const b=document.createElement('button'); b.textContent='Mesure '+(i+1); b.classList.toggle('on',i===cur); b.onclick=()=>{ if(w==='d'){ dpage=i; renderSeq(); } else { bpage=i; renderRoll(); } }; el.appendChild(b); } }
+function renderSeq(){ const g=$('seq'); g.innerHTML=''; seqCells=SND.map(()=>[]); const n=dres(), sk=16/n, sc0=SC(); fitBars(sc0); if(dpage>=DB(sc0)) dpage=0; const off=dpage*16; g.style.setProperty('--n',n); $('dres').value=String(n); pagesUI('d');
   g.appendChild(document.createElement('span')); (n===8?COUNT8:COUNT).forEach((c,i)=>{ const h=document.createElement('span'); h.className='hd'+(i%(n/4)===0?' t':''); h.textContent=c; g.appendChild(h); });
   SND.forEach((s,r)=>{ const nm=document.createElement('span'); nm.className='nm'; nm.style.setProperty('--c',s.col); nm.innerHTML=`<i></i>${s.court}`; nm.onclick=()=>padDrum(r); g.appendChild(nm);
     for(let k=0;k<16;k+=sk){ const c=document.createElement('button'); c.className='cell'+(Math.floor(k/4)%2?' b4':''); c.style.setProperty('--c',s.col); c.setAttribute('aria-label',s.nom+' case '+(k/sk+1));
-      c.onclick=()=>{ pushUndo(); const sc=SC(); sc.drums[r][k]=(sc.drums[r][k]+1)%4; paintCell(r,k); if(sc.drums[r][k]&&!playing){ audioOn(); drumHit(r,ctx.currentTime+.003,DVEL[sc.drums[r][k]]); } save(); };
+      c.onclick=()=>{ pushUndo(); const sc=SC(), K=off+k; sc.drums[r][K]=(sc.drums[r][K]+1)%4; paintCell(r,k); if(sc.drums[r][K]&&!playing){ audioOn(); drumHit(r,ctx.currentTime+.003,DVEL[sc.drums[r][K]]); } save(); };
       g.appendChild(c); seqCells[r][k]=c; paintCell(r,k,true); } }); paintDrumScore(); }
-function paintCell(r,k,noScore){ const v=SC().drums[r][k], c=seqCells[r][k]; c.classList.toggle('v1',v===1); c.classList.toggle('v2',v===2); c.classList.toggle('v3',v===3); if(!noScore) paintDrumScore(); }
-function paintDrumScore(){ const el=$('dscore'); if(el) el.innerHTML=engraveDrums(SC().drums); }
+function paintCell(r,k,noScore){ const v=SC().drums[r][dpage*16+k], c=seqCells[r][k]; c.classList.toggle('v1',v===1); c.classList.toggle('v2',v===2); c.classList.toggle('v3',v===3); if(!noScore) paintDrumScore(); }
+function paintDrumScore(){ const dc=$('dsCap'); if(dc) dc.textContent='portée de percussion'+(DB(SC())>1?' · mesure '+(dpage+1)+' sur 2':''); const el=$('dscore'); if(el) el.innerHTML=engraveDrums(SC().drums.map(r=>r.slice(dpage*16,dpage*16+16))); }
 
 /* --- accords --- */
 for(let n=1;n<=16;n++) $('glen').add(new Option(n+(n>1?' mesures':' mesure'),n));
@@ -1495,13 +1511,13 @@ function dragEnd(e){ const d=drag; drag=null; if(!d||!d.on){ dragClear(); return
 
 /* --- basse --- */
 Object.entries(BASS_PRESETS).forEach(([k,o])=>$('bpreset').add(new Option(o.nom,k)));
-$('bpreset').onchange=e=>{ pushUndo(); SC().bass=parseBass(BASS_PRESETS[e.target.value].s); SC().bpre=e.target.value; renderRoll(); save(); };
+$('bpreset').onchange=e=>{ pushUndo(); SC().bass=parseBass(BASS_PRESETS[e.target.value].s); SC().bbars=1; bpage=0; SC().bpre=e.target.value; renderRoll(); save(); };
 $('bfollow').onchange=e=>{ SONG.bass.follow=e.target.checked; renderRoll(); save(); };
 let bedit='note';
 dsel($('bedit'),{note:'Note',acc:'Accent',lig:'Liaison'},()=>bedit,k=>{ bedit=k; bhint(); });
 let bdur=1; dsel($('bdur'),{d1:'Double croche',d2:'Croche',d3:'Croche pointée',d4:'Noire',d8:'Blanche',d16:'Ronde'},()=>'d'+bdur,k=>{ bdur=+k.slice(1); });
 function bhint(){ $('bhint').innerHTML={note:'Touche une case pour poser une note de la <b>durée</b> choisie, ou glisse vers la droite pour l\'allonger. Retouche une note pour l\'effacer (ou touche sa fin pour la raccourcir). Touche un nom de note à gauche pour l\'écouter.',acc:'Touche une note pour l\'<b>accentuer</b> (plus forte, filtre plus ouvert).',lig:'Touche une note pour la <b>lier</b> à la précédente : même hauteur = note tenue, autre hauteur = glissando.'}[bedit]; }
-$('bclear').onclick=()=>{ pushUndo(); SC().bass=Array(16).fill(null); renderRoll(); save(); };
+$('bclear').onclick=()=>{ pushUndo(); SC().bass=Array(16*BB(SC())).fill(null); renderRoll(); save(); };
 seg($('bwave'),{sawtooth:'Dent de scie',square:'Carré',triangle:'Triangle'},()=>SONG.bass.wave,k=>{ SONG.bass.wave=k; bassParams(); });
 function bsoundUI(){ const syn=SONG.bass.sound==='synth'; bWire(syn); $('bwave').style.display=syn?'':'none'; $('bsl').style.display=syn?'':'none';
   $('bsndhint').innerHTML=syn?'Basse de <b>synthé</b> : règle la forme d\'onde et le filtre ci-dessous.':SONG.bass.sound==='cb'?'<b>Contrebasse</b> jouée en pizzicato (cordes pincées) : le son du jazz, de la bossa et du blues acoustique.':'<b>Basse électrique</b> jouée aux doigts : le son du rock, de la pop, du funk et du reggae.';
@@ -1515,7 +1531,7 @@ const ROLL_HI=60, ROLL_LO=33; let rollCells={};
 // (1 = fondamentale, 3 = tierce, 5 = quinte…) ; ↓ = octave grave, ↑ = octave aiguë, 8 = octave.
 const IVN=['1','♭2','2','♭3','3','4','♯4','5','♯5','6','♭7','7'];
 const ivLabel=n=>{ const o=Math.floor(n/12), i=((n%12)+12)%12; if(i===0&&o===1) return '8'; if(i===0&&o===2) return '8↑'; return IVN[i]+(o<0?'↓':o>0?'↑':''); };
-function renderRoll(){ const g=$('roll'), sc=SC(); g.innerHTML=''; rollCells={};
+function renderRoll(){ const g=$('roll'), sc=SC(); g.innerHTML=''; rollCells={}; fitBars(sc); if(bpage>=BB(sc)) bpage=0; pagesUI('b');
   const fol=SONG.bass.follow;
   for(let m=ROLL_HI;m>=ROLL_LO;m--){ const n=m-36, pc=((m%12)+12)%12, blk=[1,3,6,8,10].includes(pc), ct=fol&&[0,4,7].includes(pc);
     const lb=document.createElement('span'); lb.className='rl'+(ct?' ct':'')+(blk?' blk':''); lb.textContent=fol?ivLabel(n):FRN[[0,0,1,1,2,3,3,4,4,5,5,6][pc]]+(blk?'♯':'')+(Math.floor(m/12)-2);
@@ -1523,14 +1539,15 @@ function renderRoll(){ const g=$('roll'), sc=SC(); g.innerHTML=''; rollCells={};
     for(let k=0;k<16;k++){ const c=document.createElement('button'); c.className='rc'+(blk?' blk':'')+(k%4===0?' b4':'')+(ct?' ctr':''); c.setAttribute('aria-label','Note '+lb.textContent+' case '+(k+1));
       c.dataset.n=n; c.dataset.k=k; g.appendChild(c); rollCells[n+'_'+k]=c; } }
   const rw=g.parentElement; requestAnimationFrame(()=>{ rw.scrollTop=rw.scrollHeight; }); paintRoll(); $('bpreset').value=sc.bpre in BASS_PRESETS?sc.bpre:'vide'; $('bfollow').checked=SONG.bass.follow; }
-function paintRoll(){ const sc=SC(); $('bscore').innerHTML=engraveBassLine(sc.bass); $('bsCap').textContent=SONG.bass.follow?'clé de Fa · écrite sur un accord de Do, transposée sur chaque accord (avec une basse étrangère, la fondamentale devient cette basse) · piano roll en intervalles : 3 et ♭3 donnent la tierce de l\'accord (majeure ou mineure selon l\'accord), de même pour la quinte et la septième':'clé de Fa'; Object.values(rollCells).forEach(c=>c.classList.remove('on','acc','lig'));
-  sc.bass.forEach((st,k)=>{ if(!st) return; const c=rollCells[st.n+'_'+k]; if(c){ c.classList.add('on'); c.classList.toggle('acc',!!st.a); c.classList.toggle('lig',!!st.l); } }); }
+function paintRoll(){ const sc=SC(), off=bpage*16; $('bscore').innerHTML=engraveBassLine(sc.bass.slice(off,off+16)); $('bsCap').textContent=SONG.bass.follow?'clé de Fa · écrite sur un accord de Do, transposée sur chaque accord (avec une basse étrangère, la fondamentale devient cette basse) · piano roll en intervalles : 3 et ♭3 donnent la tierce de l\'accord (majeure ou mineure selon l\'accord), de même pour la quinte et la septième':'clé de Fa'; Object.values(rollCells).forEach(c=>c.classList.remove('on','acc','lig'));
+  if(BB(sc)>1) $('bsCap').textContent+=' · mesure '+(bpage+1)+' sur 2';
+  sc.bass.slice(off,off+16).forEach((st,k)=>{ if(!st) return; const c=rollCells[st.n+'_'+k]; if(c){ c.classList.add('on'); c.classList.toggle('acc',!!st.a); c.classList.toggle('lig',!!st.l); } }); }
 // placer une note de longueur L (cases liées), effacer une note entière ou la raccourcir
-function chainEnd(b,k){ let e=k; while(e+1<16&&b[e+1]&&b[e+1].l&&b[e+1].n===b[k].n) e++; return e; }
+function chainEnd(b,k){ let e=k; while(e+1<b.length&&b[e+1]&&b[e+1].l&&b[e+1].n===b[k].n) e++; return e; }
 function chainStart(b,k){ let s=k; while(s>0&&b[s]&&b[s].l&&b[s-1]&&b[s-1].n===b[s].n) s--; return s; }
-function placeNote(b,n,k,L){ const e=Math.min(15,k+L-1); for(let j=k;j<=e;j++) b[j]=j===k?{n,a:false,l:false}:{n,a:false,l:true}; if(e+1<16&&b[e+1]&&b[e+1].l) b[e+1].l=false; }
+function placeNote(b,n,k,L){ const e=Math.min(b.length-1,k+L-1); for(let j=k;j<=e;j++) b[j]=j===k?{n,a:false,l:false}:{n,a:false,l:true}; if(e+1<b.length&&b[e+1]&&b[e+1].l) b[e+1].l=false; }
 let rollDrag=null;
-$('roll').addEventListener('pointerdown',e=>{ const c=e.target.closest('.rc'); if(!c) return; e.preventDefault(); const n=+c.dataset.n, k=+c.dataset.k, sc=SC(), st=sc.bass[k];
+$('roll').addEventListener('pointerdown',e=>{ const c=e.target.closest('.rc'); if(!c) return; e.preventDefault(); const n=+c.dataset.n, k=bpage*16+(+c.dataset.k), sc=SC(), st=sc.bass[k];
   pushUndo();
   if(bedit!=='note'){ if(st&&st.n===n){ const s0=chainStart(sc.bass,k); if(bedit==='acc') sc.bass[s0].a=!sc.bass[s0].a; else st.l=!st.l; } }
   else if(st&&st.n===n){ const s0=chainStart(sc.bass,k), e0=chainEnd(sc.bass,k);
@@ -1540,7 +1557,7 @@ $('roll').addEventListener('pointerdown',e=>{ const c=e.target.closest('.rc'); i
     if(!playing){ audioOn(); bassNote(36+n,ctx.currentTime+.01,false,false,Math.min(.6,bdur*sdur()),true); } }
   sc.bpre='perso'; $('bpreset').value=''; paintRoll(); save(); });
 $('roll').addEventListener('pointermove',e=>{ if(!rollDrag) return; const el=document.elementFromPoint(e.clientX,e.clientY), c=el&&el.closest('.rc'); if(!c) return;
-  const k2=+c.dataset.k; if(k2<rollDrag.k) return; const sc=SC(), L=Math.max(bdur,k2-rollDrag.k+1);
+  const k2=bpage*16+(+c.dataset.k); if(k2<rollDrag.k) return; const sc=SC(), L=Math.max(bdur,k2-rollDrag.k+1);
   sc.bass=rollDrag.snap.map(x=>x&&{...x}); placeNote(sc.bass,rollDrag.n,rollDrag.k,L); paintRoll(); });
 const rollUp=()=>{ if(rollDrag){ rollDrag=null; save(); } }; window.addEventListener('pointerup',rollUp); window.addEventListener('pointercancel',rollUp);
 
@@ -1685,11 +1702,12 @@ let phEls=[]; // cases allumées par la tête de lecture : on n'éteint que cell
 function paintPh(s,barI){
   phEls.forEach(c=>c.classList.remove('ph')); phEls=[]; const add=c=>{ if(c){ c.classList.add('ph'); phEls.push(c); } };
   if(s<0){ const bp=document.getElementById('bsPh'); if(bp) bp.setAttribute('x',-200); const dp=document.getElementById('dsPh'); if(dp) dp.setAttribute('x',-200); return; }
-  if(curTab==='drums') seqCells.forEach(r=>add(r[s]));
-  if(curTab==='bass') for(let n=ROLL_LO-36;n<=ROLL_HI-36;n++) add(rollCells[n+'_'+s]);
+  const sc=SC(), dOn=barI%DB(sc)===dpage, bOn=barI%BB(sc)===bpage;
+  if(curTab==='drums'){ if(dOn) seqCells.forEach(r=>add(r[s])); add($('dpages').children[barI%DB(sc)]); }
+  if(curTab==='bass'){ if(bOn) for(let n=ROLL_LO-36;n<=ROLL_HI-36;n++) add(rollCells[n+'_'+s]); add($('bpages').children[barI%BB(sc)]); }
   if(curTab==='chords'&&SONG.chords.src==='grille'){ const el=slotEls[barI%SC().len]; if(el){ add(el); const hs=el.querySelectorAll('.h'); if(hs.length) add(hs[s>=8?1:0]); } }
-  const bp=document.getElementById('bsPh'); if(bp) bp.setAttribute('x',BS_LEFT+s*BS_STEP);
-  const dp=document.getElementById('dsPh'); if(dp) dp.setAttribute('x',DS_LEFT+s*DS_STEP);
+  const bp=document.getElementById('bsPh'); if(bp) bp.setAttribute('x',bOn?BS_LEFT+s*BS_STEP:-200);
+  const dp=document.getElementById('dsPh'); if(dp) dp.setAttribute('x',dOn?DS_LEFT+s*DS_STEP:-200);
 }
 let lastS=-1, synthDrawn='', frameN=0; // les courbes du synthé ne sont redessinées que si un réglage change
 (function loop(){
