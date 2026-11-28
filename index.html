@@ -108,6 +108,10 @@ details.help b{color:var(--text)}
 .slot.ph{background:color-mix(in srgb,var(--ch) 30%,var(--panel2))}
 .mididrag{display:inline-flex;align-items:center;gap:6px;background:color-mix(in srgb,var(--mx) 14%,var(--panel2));border:1px solid var(--mx);color:var(--mx);border-radius:9px;padding:7px 12px;font-size:14px;font-weight:600;cursor:grab;user-select:none;-webkit-user-select:none}
 @media (hover:none){.mididrag{display:none}}
+.qr{margin-top:10px}
+.qr svg{width:min(240px,70vw);height:auto;background:#fff;border-radius:10px;padding:6px;display:block}
+.qr .lbl{display:block;margin-top:4px}
+#qrSong svg{width:min(340px,85vw)}
 .dragghost{position:fixed;left:0;top:0;pointer-events:none;z-index:95;padding:7px 12px;border-radius:10px;background:color-mix(in srgb,var(--ch) 35%,var(--panel));border:1px solid var(--ch);color:var(--text);font-weight:700;font-size:16px;box-shadow:0 6px 18px #0008;transform:translate(-50%,-130%);white-space:nowrap}
 #grille .slot{touch-action:none}
 #grille.dragging .slot:not(.off){border-color:color-mix(in srgb,var(--mx) 60%,var(--line))}
@@ -370,6 +374,17 @@ footer{max-width:1200px;margin:0 auto;padding:0 16px 24px;color:var(--muted);fon
       <li><b>Molette de pitch</b> : la molette du synthé. <b>Molette de modulation</b> : le vibrato du synthé. <b>Pédale de sustain</b> : tient les notes du synthé. <b>Volume</b> (CC7) : le volume général.</li>
       <li><b>Apprendre un bouton</b> : touche ce bouton, puis un curseur de la Groovebox (n'importe lequel, dans n'importe quel onglet), puis tourne un bouton ou un fader de ton clavier : ils sont reliés.</li></ul>
     </details></div>
+</section>
+<section class="pane" id="p-share" style="--c:var(--mx)">
+  <div class="panel"><h2>Partager l'appli</h2>
+    <p class="gdesc">Pour que tes élèves ouvrent la Groovebox sur leur téléphone ou leur tablette : fais-leur scanner le QR code, ou envoie le lien.</p>
+    <div class="row"><button class="btn" id="shApp">📤 Envoyer le lien</button><button class="btn" id="cpApp">Copier le lien</button><span class="gdesc" id="shAppMsg" style="margin:0"></span></div>
+    <div class="qr" id="qrApp"></div></div>
+  <div class="panel"><h2>Partager le morceau</h2>
+    <p class="gdesc">Le <b>lien du morceau</b> contient tout le morceau (scènes, grille, batterie, basse, sons, mixage) : celui qui l'ouvre retrouve exactement ce que tu as fait. Pratique pour donner un exercice ou un accompagnement à travailler à la maison.</p>
+    <div class="row"><button class="btn" id="shSong">📤 Envoyer le lien du morceau</button><button class="btn" id="cpSong">Copier le lien</button><button class="btn" id="shFile">Envoyer le fichier .groovebox</button></div>
+    <p class="gdesc" id="shSongMsg"></p>
+    <div class="qr" id="qrSong"></div></div>
 </section>
 
 <section class="pane" id="p-mix" style="--c:var(--mx)">
@@ -1347,10 +1362,10 @@ function renderMchips(){ const box=$('mchips'); box.innerHTML='';
     b.title='Couper / rétablir'; b.onclick=()=>{ SONG.mix[k].mute=!SONG.mix[k].mute; applyMix(); renderMchips(); renderStrips(); save(); }; box.appendChild(b); }); }
 
 /* --- onglets --- */
-const TABS=[['drums','Batterie','var(--dr)'],['chords','Accords','var(--ch)'],['bass','Basse','var(--ba)'],['synth','Synthé','var(--sy)'],['mix','Mixeur','var(--mx)'],['midi','🎹 MIDI','var(--mx)']];
+const TABS=[['drums','Batterie','var(--dr)'],['chords','Accords','var(--ch)'],['bass','Basse','var(--ba)'],['synth','Synthé','var(--sy)'],['mix','Mixeur','var(--mx)'],['midi','🎹 MIDI','var(--mx)'],['share','📤 Partager','var(--mx)']];
 let curTab='drums'; try{ curTab=localStorage.getItem('groovebox-onglet')||'drums'; }catch(e){}
 TABS.forEach(([k,n,c])=>{ const b=document.createElement('button'); b.className='tab'; b.textContent=n; b.style.setProperty('--c',c); b.dataset.k=k; b.onclick=()=>showTab(k); $('tabs').appendChild(b); });
-function showTab(k){ curTab=k; document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.k===k)); document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id==='p-'+k)); try{ localStorage.setItem('groovebox-onglet',k); }catch(e){} setMeters(k==='mix'); if(k==='bass'){ const rw=document.querySelector('.rollwrap'); rw.scrollTop=rw.scrollHeight; } }
+function showTab(k){ curTab=k; if(k==='share') renderShare(); document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.k===k)); document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id==='p-'+k)); try{ localStorage.setItem('groovebox-onglet',k); }catch(e){} setMeters(k==='mix'); if(k==='bass'){ const rw=document.querySelector('.rollwrap'); rw.scrollTop=rw.scrollHeight; } }
 
 /* --- batterie --- */
 Object.entries(KITS).forEach(([k,o])=>$('kit').add(new Option(o.nom,k)));
@@ -1715,6 +1730,35 @@ $('songOpen').onclick=()=>$('songFile').click();
 $('songFile').onchange=e=>{ const f=e.target.files[0]; if(!f) return; f.text().then(txt=>{ const j=JSON.parse(txt), s=j&&(j.song||j); if(!s||s.v!==1||!Array.isArray(s.scenes)||s.scenes.length!==4) throw new Error('format');
     if(playing) stop(); try{ localStorage.setItem('groovebox-morceau',JSON.stringify(s)); }catch(_){} location.reload(); })
   .catch(()=>alert('Ce fichier n\'est pas un morceau de la Groovebox.')); e.target.value=''; };
+// ---- Partager : lien de l'appli, lien contenant le morceau, fichier .groovebox, QR codes ----
+const APP_URL=/github\.io$/.test(location.hostname)?location.origin+location.pathname.replace(/index\.html$/,''):'https://mlevan8395.github.io/groovebox/';
+const b64u=u8=>{ let s=''; for(let i=0;i<u8.length;i+=0x8000) s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000)); return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); };
+const unb64u=s=>{ s=s.replace(/-/g,'+').replace(/_/g,'/'); const b=atob(s), u=new Uint8Array(b.length); for(let i=0;i<b.length;i++) u[i]=b.charCodeAt(i); return u; };
+async function zip(str){ const u=new TextEncoder().encode(str); if(!window.CompressionStream) return 'j'+b64u(u);
+  const out=await new Response(new Blob([u]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer(); return 'z'+b64u(new Uint8Array(out)); }
+async function unzip(s){ const u=unb64u(s.slice(1)); if(s[0]==='j') return new TextDecoder().decode(u);
+  return await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text(); }
+const songLink=async()=>APP_URL+'#m='+await zip(JSON.stringify(SONG));
+let qrLib=null; function loadQR(){ return qrLib||(qrLib=new Promise((ok,ko)=>{ const s=document.createElement('script'); s.src='lib/qrcode.js'; s.onload=()=>ok(window.qrcode); s.onerror=ko; document.head.appendChild(s); })); }
+async function drawQR(el,url,label){ el.innerHTML=''; try{ const q=(await loadQR())(0,'L'); q.addData(url,'Byte'); q.make(); el.innerHTML=q.createSvgTag({cellSize:4,margin:2,scalable:true})+'<span class="lbl">'+label+'</span>'; }
+  catch(e){ el.innerHTML='<span class="gdesc">'+(url.length>2900?'Le morceau est trop long pour tenir dans un QR code : envoie plutôt le lien ou le fichier.':'QR code indisponible.')+'</span>'; } }
+async function shareOrCopy(data,msgEl){ try{ if(navigator.share){ await navigator.share(data); return; } }catch(e){ if(e.name==='AbortError') return; }
+  try{ await navigator.clipboard.writeText(data.url); msgEl.textContent='Lien copié : colle-le dans un message ou un mail.'; }catch(e){ msgEl.textContent=data.url; } }
+async function copyLink(url,msgEl){ try{ await navigator.clipboard.writeText(url); msgEl.textContent='Lien copié.'; }catch(e){ msgEl.textContent=url; } }
+async function renderShare(){ drawQR($('qrApp'),APP_URL,'Ouvrir la Groovebox');
+  const L=await songLink(); $('shSongMsg').textContent=''; drawQR($('qrSong'),L,'Ouvrir ce morceau'); }
+$('shApp').onclick=()=>shareOrCopy({title:'Groovebox',text:'La Groovebox : batterie, basse, accords et synthé pour jouer et s\'entraîner.',url:APP_URL},$('shAppMsg'));
+$('cpApp').onclick=()=>copyLink(APP_URL,$('shAppMsg'));
+$('shSong').onclick=async()=>shareOrCopy({title:'Morceau Groovebox',text:'Ouvre ce morceau dans la Groovebox :',url:await songLink()},$('shSongMsg'));
+$('cpSong').onclick=async()=>copyLink(await songLink(),$('shSongMsg'));
+$('shFile').onclick=async()=>{ const nm='morceau.groovebox', f=new File([JSON.stringify({app:'groovebox',version:1,song:SONG})],nm,{type:'application/json'});
+  try{ if(navigator.canShare&&navigator.canShare({files:[f]})){ await navigator.share({files:[f],title:'Morceau Groovebox'}); return; } }catch(e){ if(e.name==='AbortError') return; }
+  download(nm,f); $('shSongMsg').textContent='Ton appareil ne sait pas envoyer de fichier directement : il a été téléchargé, tu peux le joindre à un message.'; };
+// ouverture d'un lien de morceau (…#m=…) : on propose de le charger à la place du morceau en cours
+if(location.hash.startsWith('#m=')){ const code=location.hash.slice(3); history.replaceState(null,'',location.pathname+location.search);
+  unzip(code).then(txt=>{ const s=JSON.parse(txt); if(!s||s.v!==1||!Array.isArray(s.scenes)||s.scenes.length!==4) throw 0;
+    if(confirm('Ouvrir le morceau partagé ? Il remplacera le morceau en cours (pense à enregistrer le tien avant si besoin).')){ if(playing) stop(); try{ localStorage.setItem('groovebox-morceau',JSON.stringify(s)); }catch(_){} location.reload(); } })
+  .catch(()=>showErr('Ce lien de morceau est abîmé ou incomplet.')); }
 $('cin').onclick=()=>{ SONG.countin=SONG.countin===false; cinUI(); save(); };
 $('lightchip').style.display=LIGHT?'':'none'; $('lightchip').onclick=()=>{ showTab('mix'); $('perfpanel').scrollIntoView({behavior:'smooth'}); };
 $('sndtest').onclick=()=>{ unlockAudio(); audioOn();
